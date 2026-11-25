@@ -22,8 +22,7 @@ def loop():
     while True:
         try:
             c = conn()
-            if c.execute("SELECT 1 FROM orders WHERE status='pending' AND expires_ts<? LIMIT 1", (time.time(),)).fetchone():
-                c.execute("UPDATE orders SET status='expired' WHERE status='pending' AND expires_ts<?", (time.time(),)); c.commit()   # write only when needed, so logins never queue behind the 1-second loop
+            c.execute("UPDATE orders SET status='expired' WHERE status='pending' AND expires_ts<?", (time.time(),)); c.commit()
             rows = c.execute("""SELECT DISTINCT g.id, g.type FROM gateways g JOIN orders o ON o.gateway_id=g.id
                                 WHERE g.active=1 AND o.status='pending'""").fetchall()
             c.close()

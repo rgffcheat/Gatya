@@ -4,7 +4,8 @@ BASE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#07080d">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237c5cff'/%3E%3Cpath d='M11 24V8h6.5a4.5 4.5 0 0 1 0 9H11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <title>{% block title %}Pay Gateway{% endblock %}</title>
 <style>
 :root{--bg:#06070c;--card:#0e1119;--card2:#131726;--line:#1c2133;--line2:#2a3150;--txt:#eef0f7;--mut:#8b92ab;--a:#7c5cff;--a2:#4f8cff;--b:#22d3ee;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b}
@@ -117,7 +118,6 @@ ICONS = """{% macro ico(n) %}{% set P={
 'plus':'<path d="M12 5v14M5 12h14"/>',
 'wallet':'<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H5a2 2 0 0 1-2-2"/><circle cx="16" cy="14" r="1.2"/>',
 'check':'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>',
-'key':'<circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L20 3M16 7l3 3M14 9l2 2"/>',
 'shield':'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>'} %}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{{ P[n]|safe }}</svg>{% endmacro %}"""
 
 MARK = '<span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20V5h6a4 4 0 0 1 0 8H8"/></svg></span>'
@@ -137,10 +137,10 @@ def _layout(items, who, av, sub, tail):
       '<script>function tgl(){document.body.classList.toggle("open")}</script>{% endblock %}')
 
 USER_ITEMS = [("dash", "/dashboard", "Dashboard", "home"), ("gateways", "/gateways", "Gateways", "grid"),
-              ("orders", "/orders", "Orders", "list"), ("keys", "/keys", "API Keys", "key"), ("docs", "/docs", "API docs", "book"), ("account", "/account", "Account", "user")]
+              ("orders", "/orders", "Orders", "list"), ("docs", "/docs", "API docs", "book"), ("account", "/account", "Account", "user")]
 ADMIN_ITEMS = [("home", "/admin", "Overview", "chart"), ("users", "/admin/users", "Users", "users"),
                ("gws", "/admin/gateways", "Gateways &amp; Orders", "grid"), ("set", "/admin/settings", "Settings &amp; Backup", "gear")]
-LAYOUT_USER = _layout(USER_ITEMS, "{{ g.user.username }}", "{{ g.user.username[:1]|upper }}", "Merchant account", '')
+LAYOUT_USER = _layout(USER_ITEMS, "{{ g.user.username }}", "{{ g.user.username[:1]|upper }}", "Merchant account", '<a class="out" href="/logout">{{ ico(\'logout\') }}<span>Logout</span></a>')
 LAYOUT_ADMIN = _layout(ADMIN_ITEMS, "Administrator", "A", "Full access", '<a class="out" href="/admin/logout">{{ ico(\'logout\') }}<span>Logout</span></a>')
 
 def page(layout, active, title, content):
@@ -161,7 +161,7 @@ AUTH = """{% extends 'base.html' %}{% block title %}{{ 'Sign up' if mode=='signu
 <label>Gmail</label><input name="email" type="email" required placeholder="you@gmail.com">
 {% endif %}
 <label>Password</label><div class="pw"><input id="pw" name="password" type="password" required autocomplete="{{ 'new-password' if mode=='signup' else 'current-password' }}" autocapitalize="off" autocorrect="off" spellcheck="false"><button type="button" class="eye" onclick="sp(this)">Show</button></div>
-<button class="btn full" id="sb">{{ 'Create account' if mode=='signup' else 'Login' }}</button></form>
+<button class="btn full">{{ 'Create account' if mode=='signup' else 'Login' }}</button></form>
 <p class="center mut" style="margin:18px 0 0">
 {% if mode=='signup' %}Already have an account? <a href="/login"><b>Login</b></a>{% else %}New here? <a href="/signup"><b>Create account</b></a>{% endif %}</p>
 </div></div>""" + _PWJS + """{% endblock %}"""
@@ -171,7 +171,7 @@ ADMIN_LOGIN = """{% extends 'base.html' %}{% block title %}Admin · Pay Gateway{
 <form method="post"><input type="hidden" name="csrf" value="{{csrf}}">
 <label>Admin username</label><input name="username" required autocapitalize="off" autocorrect="off">
 <label>Password</label><div class="pw"><input id="pw" name="password" type="password" required autocapitalize="off"><button type="button" class="eye" onclick="sp(this)">Show</button></div>
-<button class="btn full" id="sb">Login</button></form></div></div>""" + _PWJS + """{% endblock %}"""
+<button class="btn full">Login</button></form></div></div>""" + _PWJS + """{% endblock %}"""
 
 def stat(label, val, icon="chart"):
     return ('<div class="card stat"><div class="si">{{ ico(\'%s\') }}</div><div><span>%s</span><b>%s</b></div></div>' % (icon, label, val))
@@ -216,10 +216,10 @@ GATEWAY = page('layout_user.html', 'gateways', '{{gw.name}}', """
 <div class="card"><table><tr><th>Type</th><td>{{ 'FamPay (Gmail auto verification)' if gw.type=='fampay' else 'Paytm Business (Merchant ID)' }}</td></tr><tr><th>UPI ID</th><td>{{gw.upi_id}}</td></tr>
 {% if gw.type=='fampay' %}<tr><th>Gmail</th><td>{{gw.gmail}}</td></tr>{% else %}<tr><th>Merchant ID</th><td>{{gw.mid}}</td></tr>{% endif %}<tr><th>Last check</th><td>{{last}}</td></tr>
 {% if gw.last_error %}<tr><th>Last error</th><td style="color:#fca5a5">{{gw.last_error}}</td></tr>{% endif %}</table>
-<h3 style="margin-top:20px">API key</h3>
-<p class="mut">Your API keys are managed in the <a href="/keys">API Keys</a> section of the menu.</p>
+<h3 style="margin-top:20px">API key</h3><input readonly value="{{gw.api_key}}" onclick="this.select()">
+<p class="mut">Base URL: {{base}}</p>
 <div class="row" style="margin-top:14px">
-{% for path,label,cls in [('test','Test connection','gray'),('test-order','Create ₹1 test order',''),('toggle','Turn ' + ('off' if gw.active else 'on'),'gray'),('delete','Delete gateway','red')] %}
+{% for path,label,cls in [('test','Test connection','gray'),('test-order','Create ₹1 test order',''),('toggle','Turn ' + ('off' if gw.active else 'on'),'gray'),('regen','Regenerate API key','gray'),('delete','Delete gateway','red')] %}
 <form method="post" action="/gateway/{{gw.id}}/{{path}}" style="flex:0" {% if path in ('delete','regen') %}onsubmit="return confirm('Are you sure?')"{% endif %}>
 <input type="hidden" name="csrf" value="{{csrf}}"><button class="btn sm {{cls}}">{{label}}</button></form>{% endfor %}</div></div>
 <div class="card"><h2>Recent orders</h2><div class="scroll"><table>
@@ -244,14 +244,18 @@ ORDERS = page('layout_user.html', 'orders', 'Orders', """
 
 DOCS = page('layout_user.html', 'docs', 'API docs', """
 <div class="pagehead"><h1>API docs</h1></div>
-<div class="card"><p class="mut">Base URL: <b>{{base}}</b> &nbsp; Auth: header <code>X-API-Key: YOUR_KEY</code> (create it in the API Keys menu). Set your webhook on the <a href="/webhooks">Webhooks</a> page.</p>
+<div class="card"><p class="mut">Base URL: <b>{{base}}</b> &nbsp; Auth: header <code>X-API-Key: YOUR_KEY</code> (the API key is on each gateway page). Set your webhook on the <a href="/webhooks">Webhooks</a> page.</p>
 <pre style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5">{{txt}}</pre>
 <a class="btn" href="/docs.txt" download>Download TXT</a></div>""")
 
 ACCOUNT = page('layout_user.html', 'account', 'Account', """
 <div class="pagehead"><h1>Account</h1></div>
 <div class="card"><table><tr><th>Username</th><td>{{u.username}}</td></tr><tr><th>Phone</th><td>{{u.phone}}</td></tr><tr><th>Gmail</th><td>{{u.email}}</td></tr><tr><th>Joined</th><td>{{u.created}}</td></tr></table></div>
-""")
+<div class="card"><h3>Change password</h3>
+<form method="post" action="/change-password" class="row"><input type="hidden" name="csrf" value="{{csrf}}">
+<div><label>Current password</label><input type="password" name="old" required></div>
+<div><label>New password</label><input type="password" name="new" required minlength="6"></div>
+<div><button class="btn">Update</button></div></form></div>""")
 
 CHECKOUT = """{% extends 'base.html' %}{% block title %}Pay ₹{{amt}} · {{gw.name}}{% endblock %}
 {% block body %}<div class="page"><div class="co">

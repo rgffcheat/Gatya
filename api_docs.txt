@@ -35,11 +35,10 @@ Never trust a redirect, a screenshot or a user-entered UTR.
  a) Register, open "Gateways", save your gateway setup:
       Paytm  : Shop Name + UPI ID + MID
       FamPay : Shop Name + UPI ID + Gmail + Gmail App Password
-    Press "Create ₹1 test order" on the gateway page and pay it. If the
-    page shows "Payment received", the gateway works.
- b) Open the "API Keys" menu, enter your shop name, press "Generate API key"
-    and copy the key. The shop name is shown to your customers as the
-    payment note in their UPI app. One key works for all your gateways.
+    Press "Test: pay Rs 1 (QR)" and pay it. If the page shows
+    "Payment Successful", the gateway works.
+ b) Open your gateway page and copy its API key. The key of any of your
+    gateways works for all your gateways (see "gateway" below).
  c) Call the API from your server (examples in section 12).
 
 
@@ -47,8 +46,8 @@ Never trust a redirect, a screenshot or a user-entered UTR.
 -----------------------
  Send   "gateway": "paytm"   or   "gateway": "fampay"   when creating.
  (GET style: &gateway=paytm  or  &gateway=fampay)
- If you omit it, the first enabled gateway of the merchant is used
- (FamPay first, then Paytm). Always send it explicitly.
+ If you omit it, the gateway that the API key belongs to is used.
+ Always send it explicitly.
 
  PAYTM
    - Setup needs only: Shop Name, UPI ID, MID.

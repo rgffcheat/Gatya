@@ -59,15 +59,6 @@ def init_db():
     def addcol(t, col, typ):
         if col not in [r[1] for r in c.execute(f"PRAGMA table_info({t})")]:
             c.execute(f"ALTER TABLE {t} ADD COLUMN {col} {typ}")
-    # self-heal an older database: add any column a previous version of the app did not have
-    for t_, cols_ in {
-        "users": [("phone", "TEXT NOT NULL DEFAULT ''"), ("email", "TEXT NOT NULL DEFAULT ''"), ("banned", "INTEGER DEFAULT 0"), ("created", "TEXT NOT NULL DEFAULT ''")],
-        "gateways": [("type", "TEXT NOT NULL DEFAULT 'fampay'"), ("name", "TEXT NOT NULL DEFAULT ''"), ("upi_id", "TEXT NOT NULL DEFAULT ''"), ("gmail", "TEXT"), ("app_pw_enc", "TEXT"),
-                     ("active", "INTEGER DEFAULT 1"), ("last_check", "REAL"), ("last_error", "TEXT"), ("created", "REAL NOT NULL DEFAULT 0")],
-        "orders": [("base_amount", "INTEGER NOT NULL DEFAULT 0"), ("ref", "TEXT"), ("webhook_url", "TEXT"), ("redirect_url", "TEXT"), ("expires_ts", "REAL NOT NULL DEFAULT 0"),
-                   ("paid_ts", "REAL"), ("utr", "TEXT"), ("webhook_status", "TEXT")]}.items():
-        for col_, typ_ in cols_: addcol(t_, col_, typ_)
-    c.execute("UPDATE users SET banned=0 WHERE banned IS NULL")
     addcol("gateways", "mid", "TEXT"); addcol("gateways", "key_enc", "TEXT")
     addcol("gateways", "last_uid", "INTEGER DEFAULT 0"); addcol("orders", "cancel_url", "TEXT"); addcol("orders", "qr_data", "TEXT"); addcol("orders", "pt_order", "TEXT")
     # one-time: force the 5-minute QR expiry even if an older value was saved
