@@ -138,7 +138,7 @@ def login():
                 session.clear(); session["admin"] = True; session["csrf"] = secrets.token_hex(16)
                 return redirect("/admin")
             u = db().execute("SELECT * FROM users WHERE username=? COLLATE NOCASE", (un,)).fetchone()
-            if u and (check_password_hash(u["password_hash"], raw) or check_password_hash(u["password_hash"], raw.strip())):
+            if u and (check_password_hash(u["password_hash"], raw) or (raw != raw.strip() and check_password_hash(u["password_hash"], raw.strip()))):
                 if u["banned"]: flash("This account is banned.", "err")
                 else:
                     _attempts.pop(k, None)

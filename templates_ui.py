@@ -4,8 +4,7 @@ BASE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#07080d">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237c5cff'/%3E%3Cpath d='M11 24V8h6.5a4.5 4.5 0 0 1 0 9H11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <title>{% block title %}Pay Gateway{% endblock %}</title>
 <style>
 :root{--bg:#06070c;--card:#0e1119;--card2:#131726;--line:#1c2133;--line2:#2a3150;--txt:#eef0f7;--mut:#8b92ab;--a:#7c5cff;--a2:#4f8cff;--b:#22d3ee;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b}
