@@ -161,7 +161,7 @@ AUTH = """{% extends 'base.html' %}{% block title %}{{ 'Sign up' if mode=='signu
 <label>Gmail</label><input name="email" type="email" required placeholder="you@gmail.com">
 {% endif %}
 <label>Password</label><div class="pw"><input id="pw" name="password" type="password" required autocomplete="{{ 'new-password' if mode=='signup' else 'current-password' }}" autocapitalize="off" autocorrect="off" spellcheck="false"><button type="button" class="eye" onclick="sp(this)">Show</button></div>
-<button class="btn full">{{ 'Create account' if mode=='signup' else 'Login' }}</button></form>
+<button class="btn full" id="sb">{{ 'Create account' if mode=='signup' else 'Login' }}</button></form>
 <p class="center mut" style="margin:18px 0 0">
 {% if mode=='signup' %}Already have an account? <a href="/login"><b>Login</b></a>{% else %}New here? <a href="/signup"><b>Create account</b></a>{% endif %}</p>
 </div></div>""" + _PWJS + """{% endblock %}"""
@@ -171,7 +171,7 @@ ADMIN_LOGIN = """{% extends 'base.html' %}{% block title %}Admin · Pay Gateway{
 <form method="post"><input type="hidden" name="csrf" value="{{csrf}}">
 <label>Admin username</label><input name="username" required autocapitalize="off" autocorrect="off">
 <label>Password</label><div class="pw"><input id="pw" name="password" type="password" required autocapitalize="off"><button type="button" class="eye" onclick="sp(this)">Show</button></div>
-<button class="btn full">Login</button></form></div></div>""" + _PWJS + """{% endblock %}"""
+<button class="btn full" id="sb">Login</button></form></div></div>""" + _PWJS + """{% endblock %}"""
 
 def stat(label, val, icon="chart"):
     return ('<div class="card stat"><div class="si">{{ ico(\'%s\') }}</div><div><span>%s</span><b>%s</b></div></div>' % (icon, label, val))

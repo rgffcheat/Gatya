@@ -65,8 +65,15 @@ def on_error(e):
     import traceback; traceback.print_exc()          # full error goes to the Render log
     return ("Something went wrong on the server. Please go back and try again.", 500)
 
+@app.before_request
+def _t0(): g._t0 = time.time()
+
 @app.after_request
 def headers(r):
+    try:   # visible in the Render log: any slow (>2s) or failed request
+        dt = time.time() - g._t0
+        if dt > 2 or r.status_code >= 500: print("[gw] %s %s -> %s in %.1fs" % (request.method, request.path, r.status_code, dt), flush=True)
+    except Exception: pass
     r.headers["X-Frame-Options"] = "DENY"
     r.headers["X-Content-Type-Options"] = "nosniff"
     if r.mimetype == "text/html": r.headers["Cache-Control"] = "no-store"
@@ -503,7 +510,8 @@ def admin_settings():
     return render_template("admin_set.html", s=s_, last_backup=ist(lb) if lb else "never", csrf=session["csrf"])
 
 @app.route("/health")
-def health(): return "ok"
+def health():
+    db().execute("SELECT 1 FROM users LIMIT 1").fetchone(); return "ok"
 
 def _order_query(csv=False):
     gsel = request.args.get("gateway", type=int); ssel = request.args.get("status", "")
