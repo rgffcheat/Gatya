@@ -25,7 +25,7 @@ SECRET = _secret()
 
 DEFAULTS = {"fampay_sender": "famapp.in", "fampay_keywords": "received,credited",
             "order_expiry_min": "5", "base_url": "", "paytm_env": "prod",
-            "tg_token": "", "tg_chat": "", "last_backup": "0", "last_backup_msg": ""}
+            "tg_token": "", "tg_chat": "", "last_backup": "0", "last_backup_msg": "", "last_backup_try": "0", "backup_hours": "1"}
 
 def conn():
     c = sqlite3.connect(DB_PATH, timeout=20)
@@ -51,6 +51,8 @@ def init_db():
         redirect_url TEXT, status TEXT NOT NULL, created_ts REAL NOT NULL, expires_ts REAL NOT NULL,
         paid_ts REAL, utr TEXT, webhook_status TEXT);
     CREATE INDEX IF NOT EXISTS ix_orders_gw ON orders(gateway_id, status);
+    CREATE INDEX IF NOT EXISTS ix_orders_exp ON orders(status, expires_ts);
+    CREATE INDEX IF NOT EXISTS ix_orders_user ON orders(user_id, created_ts);
     CREATE TABLE IF NOT EXISTS seen_mail(gateway_id INTEGER, msgid TEXT, PRIMARY KEY(gateway_id,msgid));
     CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT);
     """)

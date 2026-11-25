@@ -1,6 +1,9 @@
 import json, hmac, hashlib, threading, time, socket, ipaddress, urllib.request
 from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor
 from core import conn
+
+_HOOKS = ThreadPoolExecutor(max_workers=16)   # bounded: a burst of paid orders cannot spawn endless threads
 
 def safe_url(u):
     try:
@@ -43,6 +46,9 @@ def mark_paid(oid, utr=None):
                     (time.time(), utr, oid))
     c.commit(); c.close()
     if cur.rowcount:
-        threading.Thread(target=_send, args=(oid,), daemon=True).start()
+        _HOOKS.submit(_send, oid)
+        try:
+            import api_compat; _HOOKS.submit(api_compat.on_paid, oid)
+        except Exception: pass
         return True
     return False

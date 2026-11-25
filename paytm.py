@@ -14,6 +14,8 @@ from payments import mark_paid
 
 IV = b"@@@@&&&&####$$$$"
 _locks, _last = {}, {}
+from concurrent.futures import ThreadPoolExecutor
+_POOL = ThreadPoolExecutor(max_workers=8)
 UA = {"User-Agent": "Mozilla/5.0"}
 
 def _host():
@@ -96,23 +98,25 @@ def check_gateway(gid, min_gap=2.0):
         _last[gid] = time.time()
         c = conn()
         g = c.execute("SELECT * FROM gateways WHERE id=? AND active=1 AND type='paytm'", (gid,)).fetchone()
-        pend = c.execute("SELECT * FROM orders WHERE gateway_id=? AND status='pending' AND expires_ts>? ORDER BY created_ts DESC LIMIT 20",
+        pend = c.execute("SELECT * FROM orders WHERE gateway_id=? AND status='pending' AND expires_ts>? ORDER BY created_ts ASC LIMIT 300",
                          (gid, time.time())).fetchall()
         if not g or not pend: c.close(); return
         key = None
         if g["key_enc"]:
             try: key = dec(g["key_enc"])
             except Exception: key = None
-        err = None
-        for o in pend:
+        errs = []
+        def one(o):
             try:
                 s = fetch_status(g["mid"], key, o["pt_order"])
-                if s["state"] != "SUCCESS": continue
-                if s["order_id"] and str(s["order_id"]) != o["pt_order"]: continue
+                if s["state"] != "SUCCESS": return
+                if s["order_id"] and str(s["order_id"]) != o["pt_order"]: return
                 if s["amount"] == o["amount"]: mark_paid(o["id"], s["txn_id"] or None)
-                else: err = f"Amount mismatch on {o['pt_order']}: paid {s['amount']/100:.2f}, expected {o['amount']/100:.2f}"
+                else: errs.append(f"Amount mismatch on {o['pt_order']}: paid {s['amount']/100:.2f}, expected {o['amount']/100:.2f}")
             except Exception as e:
-                err = f"Paytm check error: {str(e)[:100]}"
+                errs.append(f"Paytm check error: {str(e)[:100]}")
+        list(_POOL.map(one, pend))          # all pending orders, 8 at a time (none is left unchecked)
+        err = errs[-1] if errs else None
         c.execute("UPDATE gateways SET last_check=?, last_error=? WHERE id=?", (time.time(), err, gid)); c.commit(); c.close()
     finally:
         lock.release()

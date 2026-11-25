@@ -18,7 +18,7 @@ from flask import jsonify
 
 ADMIN_ACCOUNTS = [("rgcheat", "909090")]
 if os.environ.get("ADMIN_USERNAME") and os.environ.get("ADMIN_PASSWORD"):
-    ADMIN_ACCOUNTS.append((os.environ["ADMIN_USERNAME"].strip().lower(), os.environ["ADMIN_PASSWORD"]))
+    ADMIN_ACCOUNTS = [(os.environ["ADMIN_USERNAME"].strip().lower(), os.environ["ADMIN_PASSWORD"])]   # env replaces the built-in default
 
 def is_admin_cred(u, p):
     u = (u or "").strip().lower().encode(); p = (p or "").strip().encode(); ok = False
@@ -71,7 +71,11 @@ def throttled(key, limit=8, window=300):
     a = [x for x in _attempts.get(key, []) if t - x < window]
     _attempts[key] = a
     return len(a) >= limit
-def fail(key): _attempts.setdefault(key, []).append(time.time())
+def fail(key):
+    _attempts.setdefault(key, []).append(time.time())
+    if len(_attempts) > 5000:
+        t = time.time()
+        for k_ in [k_ for k_, v in list(_attempts.items()) if not v or t - v[-1] > 600]: _attempts.pop(k_, None)
 
 def ip(): return request.remote_addr or ""
 
@@ -235,7 +239,10 @@ def admin_toggle(uid):
 @app.route("/admin/user/<int:uid>/delete", methods=["POST"])
 @admin_required
 def admin_delete(uid):
-    db().execute("DELETE FROM users WHERE id=?", (uid,)); db().commit()
+    d = db()
+    for (gid,) in d.execute("SELECT id FROM gateways WHERE user_id=?", (uid,)).fetchall():
+        d.execute("DELETE FROM orders WHERE gateway_id=?", (gid,)); d.execute("DELETE FROM seen_mail WHERE gateway_id=?", (gid,))
+    d.execute("DELETE FROM gateways WHERE user_id=?", (uid,)); d.execute("DELETE FROM users WHERE id=?", (uid,)); d.commit()
     flash("User deleted.", "ok"); return redirect("/admin/users")
 
 @app.route("/admin/backup")
@@ -250,15 +257,30 @@ def backup_download():
 def restore():
     f = request.files.get("file")
     if not f: flash("Choose a backup file.", "err"); return redirect("/admin/settings")
-    tmp = os.path.join(DATA_DIR, "restore.tmp"); f.save(tmp)
+    tmp = os.path.join(DATA_DIR, "restore.tmp"); f.save(tmp); extra = ""
     try:
-        s = sqlite3.connect(tmp); s.execute("SELECT id,username,password_hash FROM users LIMIT 1"); 
+        import zipfile
+        if zipfile.is_zipfile(tmp):
+            with zipfile.ZipFile(tmp) as z:
+                names = z.namelist()
+                if "gateway.db" not in names: raise ValueError("no gateway.db in zip")
+                src = os.path.join(DATA_DIR, "restore.db"); open(src, "wb").write(z.read("gateway.db"))
+                if "SECRET_KEY.txt" in names and not os.environ.get("SECRET_KEY"):
+                    sk = z.read("SECRET_KEY.txt").decode().strip()
+                    if sk and sk != SECRET:
+                        open(os.path.join(DATA_DIR, ".secret"), "w").write(sk); extra = " Secret key restored: RESTART the app now."
+                elif "SECRET_KEY.txt" in names and z.read("SECRET_KEY.txt").decode().strip() != SECRET:
+                    extra = " Set the SECRET_KEY environment variable to the value inside the backup, then restart."
+        else:
+            src = tmp
+        s = sqlite3.connect(src); s.execute("SELECT id,username,password_hash FROM users LIMIT 1")
         d = sqlite3.connect(DB_PATH); s.backup(d); d.close(); s.close()
-        init_db(); flash("Backup restored.", "ok")
+        init_db(); flash("Backup restored." + extra, "ok")
     except Exception:
         flash("Invalid backup file.", "err")
     finally:
-        if os.path.exists(tmp): os.remove(tmp)
+        for p_ in (tmp, os.path.join(DATA_DIR, "restore.db")):
+            if os.path.exists(p_): os.remove(p_)
     return redirect("/admin/settings")
 
 
@@ -344,7 +366,8 @@ def make_order(gw, amount, ref, webhook, redirect_url, cancel_url=None):
     c = db()
     base = int((amount * 100).to_integral_value())
     pend = {r[0] for r in c.execute("SELECT amount FROM orders WHERE gateway_id=? AND status='pending' AND expires_ts>?", (gw["id"], time.time()))}
-    if len(pend) >= 300: return None, "Too many pending orders"
+    npend = c.execute("SELECT COUNT(*) FROM orders WHERE gateway_id=? AND status='pending' AND expires_ts>?", (gw["id"], time.time())).fetchone()[0]
+    if npend >= 300: return None, "Too many pending orders"
     oid = secrets.token_hex(12); t = time.time(); qr = pt = None
     if gw["type"] == "paytm":
         amt = base; pt = paytm.new_order_id()
@@ -369,10 +392,12 @@ def api_gateway():
 def api_create():
     gw = api_gateway()
     if not gw: return jsonify(error="invalid or inactive api key"), 401
-    if throttled("api:%s" % gw["id"], 40, 60): return jsonify(error="rate limit, slow down"), 429
+    if throttled("api:%s" % gw["id"], 300, 60): return jsonify(error="rate limit, slow down"), 429
     fail("api:%s" % gw["id"])
     d = request.get_json(silent=True) or request.form
-    try: amount = Decimal(str(d.get("amount", ""))).quantize(Decimal("0.01"))
+    try:
+        amount = Decimal(str(d.get("amount", ""))).quantize(Decimal("0.01"))
+        if not amount.is_finite(): raise ValueError("not a number")
     except (InvalidOperation, ValueError): return jsonify(error="invalid amount"), 400
     if not (Decimal("1") <= amount <= Decimal("100000")): return jsonify(error="amount must be 1 to 100000"), 400
     wh = (d.get("webhook_url") or "").strip() or None; rd = (d.get("redirect_url") or "").strip() or None
@@ -418,7 +443,7 @@ def pay_status(oid):
 @app.route("/docs")
 @login_required
 def docs():
-    return render_template("docs.html", base=base_url())
+    return render_template("docs.html", base=base_url(), txt=api_compat.docs_text(base_url()))
 
 # ---------- admin: gateways & settings ----------
 @app.route("/admin")
@@ -450,19 +475,20 @@ def admin_gateways():
 def admin_gateway_action(gid, action):
     if action == "toggle": db().execute("UPDATE gateways SET active=1-active WHERE id=?", (gid,))
     elif action == "delete":
-        db().execute("DELETE FROM orders WHERE gateway_id=?", (gid,)); db().execute("DELETE FROM gateways WHERE id=?", (gid,))
+        db().execute("DELETE FROM orders WHERE gateway_id=?", (gid,)); db().execute("DELETE FROM seen_mail WHERE gateway_id=?", (gid,)); db().execute("DELETE FROM gateways WHERE id=?", (gid,))
     db().commit(); return redirect("/admin/gateways")
 
 @app.route("/admin/settings", methods=["GET", "POST"])
 @admin_required
 def admin_settings():
     if request.method == "POST":
-        for k in ("base_url", "fampay_sender", "fampay_keywords", "order_expiry_min", "paytm_env", "tg_chat", "tg_token"):
+        for k in ("base_url", "fampay_sender", "fampay_keywords", "order_expiry_min", "paytm_env", "tg_chat", "tg_token", "backup_hours"):
             v = request.form.get(k, "").strip()
             if k == "tg_token" and not v: continue
             if k == "order_expiry_min" and not (v.isdigit() and 3 <= int(v) <= 120): v = DEFAULTS[k]
             if k == "base_url" and v and not re.match(r"https?://", v): v = ""
             if k == "paytm_env" and v not in ("prod", "stage"): v = "prod"
+            if k == "backup_hours" and not (v.isdigit() and 1 <= int(v) <= 24): v = "1"
             set_setting(k, v)
         flash("Settings saved.", "ok")
     s_ = {k: get_setting(k) for k in DEFAULTS}
@@ -505,10 +531,18 @@ def admin_order_paid(oid):
     db().execute("UPDATE orders SET status='pending' WHERE id=? AND status='expired'", (oid,)); db().commit()
     flash("Order marked paid." if payments.mark_paid(oid, "manual") else "Could not mark paid.", "ok"); return redirect("/admin/gateways")
 
+@app.route("/admin/telegram-test", methods=["POST"])
+@admin_required
+def admin_telegram_test():
+    ok, msg = backup.send_text("Gateway: Telegram connected. Automatic backups will arrive here."); flash(msg if not ok else "Test message sent to Telegram.", "ok" if ok else "err"); return redirect("/admin/settings")
+
 @app.route("/admin/backup-now", methods=["POST"])
 @admin_required
 def admin_backup_now():
     ok, msg = backup.run_backup(); flash(msg, "ok" if ok else "warn"); return redirect("/admin/settings")
+
+import api_compat
+api_compat.init(app, make_order, base_url, login_required)
 
 worker.start()
 

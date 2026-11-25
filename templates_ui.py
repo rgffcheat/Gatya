@@ -118,6 +118,7 @@ ICONS = """{% macro ico(n) %}{% set P={
 'plus':'<path d="M12 5v14M5 12h14"/>',
 'wallet':'<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H5a2 2 0 0 1-2-2"/><circle cx="16" cy="14" r="1.2"/>',
 'check':'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>',
+'key':'<circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L20 3M16 7l3 3M14 9l2 2"/>',
 'shield':'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>'} %}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{{ P[n]|safe }}</svg>{% endmacro %}"""
 
 MARK = '<span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20V5h6a4 4 0 0 1 0 8H8"/></svg></span>'
@@ -137,7 +138,7 @@ def _layout(items, who, av, sub, tail):
       '<script>function tgl(){document.body.classList.toggle("open")}</script>{% endblock %}')
 
 USER_ITEMS = [("dash", "/dashboard", "Dashboard", "home"), ("gateways", "/gateways", "Gateways", "grid"),
-              ("orders", "/orders", "Orders", "list"), ("docs", "/docs", "API docs", "book"), ("account", "/account", "Account", "user")]
+              ("orders", "/orders", "Orders", "list"), ("keys", "/keys", "API Keys", "key"), ("docs", "/docs", "API docs", "book"), ("account", "/account", "Account", "user")]
 ADMIN_ITEMS = [("home", "/admin", "Overview", "chart"), ("users", "/admin/users", "Users", "users"),
                ("gws", "/admin/gateways", "Gateways &amp; Orders", "grid"), ("set", "/admin/settings", "Settings &amp; Backup", "gear")]
 LAYOUT_USER = _layout(USER_ITEMS, "{{ g.user.username }}", "{{ g.user.username[:1]|upper }}", "Merchant account", '<a class="out" href="/logout">{{ ico(\'logout\') }}<span>Logout</span></a>')
@@ -216,10 +217,10 @@ GATEWAY = page('layout_user.html', 'gateways', '{{gw.name}}', """
 <div class="card"><table><tr><th>Type</th><td>{{ 'FamPay (Gmail auto verification)' if gw.type=='fampay' else 'Paytm Business (Merchant ID)' }}</td></tr><tr><th>UPI ID</th><td>{{gw.upi_id}}</td></tr>
 {% if gw.type=='fampay' %}<tr><th>Gmail</th><td>{{gw.gmail}}</td></tr>{% else %}<tr><th>Merchant ID</th><td>{{gw.mid}}</td></tr>{% endif %}<tr><th>Last check</th><td>{{last}}</td></tr>
 {% if gw.last_error %}<tr><th>Last error</th><td style="color:#fca5a5">{{gw.last_error}}</td></tr>{% endif %}</table>
-<h3 style="margin-top:20px">API key</h3><input readonly value="{{gw.api_key}}" onclick="this.select()">
-<p class="mut">Base URL: {{base}}</p>
+<h3 style="margin-top:20px">API key</h3>
+<p class="mut">Your API keys are managed in the <a href="/keys">API Keys</a> section of the menu.</p>
 <div class="row" style="margin-top:14px">
-{% for path,label,cls in [('test','Test connection','gray'),('test-order','Create ₹1 test order',''),('toggle','Turn ' + ('off' if gw.active else 'on'),'gray'),('regen','Regenerate API key','gray'),('delete','Delete gateway','red')] %}
+{% for path,label,cls in [('test','Test connection','gray'),('test-order','Create ₹1 test order',''),('toggle','Turn ' + ('off' if gw.active else 'on'),'gray'),('delete','Delete gateway','red')] %}
 <form method="post" action="/gateway/{{gw.id}}/{{path}}" style="flex:0" {% if path in ('delete','regen') %}onsubmit="return confirm('Are you sure?')"{% endif %}>
 <input type="hidden" name="csrf" value="{{csrf}}"><button class="btn sm {{cls}}">{{label}}</button></form>{% endfor %}</div></div>
 <div class="card"><h2>Recent orders</h2><div class="scroll"><table>
@@ -243,23 +244,10 @@ ORDERS = page('layout_user.html', 'orders', 'Orders', """
 <div style="text-align:right">{% if more %}<a class="btn sm gray" href="?page={{page+1}}&gateway={{gsel or ''}}&status={{ssel}}">Next →</a>{% endif %}</div></div></div>""")
 
 DOCS = page('layout_user.html', 'docs', 'API docs', """
-<div class="pagehead"><h1>API docs</h1></div><div class="card">
-<p class="mut">Base URL: <b>{{base}}</b> &nbsp; Auth: header <code>X-API-Key: YOUR_GATEWAY_KEY</code></p>
-<h3>1. Create order</h3>
-<pre>POST {{base}}/api/v1/orders
-Content-Type: application/json
-
-{"amount": 100, "ref": "your-order-id",
- "webhook_url": "https://yoursite.com/hook",
- "redirect_url": "https://yoursite.com/thanks",
- "cancel_url": "https://yoursite.com/cart"}</pre>
-<p class="mut">Only <code>amount</code> is required. Response:</p>
-<pre>{"order_id":"...","payment_url":"{{base}}/pay/...","amount":"100.00","expires_in":300}</pre>
-<p class="mut">Send the user to <code>payment_url</code>. Orders expire in 5 minutes. For FamPay the amount can be a few paise higher so each pending payment is unique; use the returned <code>amount</code>. The Back button on the payment page goes to <code>cancel_url</code> (or <code>redirect_url</code>).</p>
-<h3>2. Check status</h3>
-<pre>GET {{base}}/api/v1/orders/ORDER_ID   →  {"status":"pending|paid|expired", ...}</pre>
-<h3>3. Webhook</h3>
-<p class="mut">When paid, we POST JSON <code>{event, order_id, ref, amount, status, utr, paid_at}</code> to your webhook_url with header <code>X-Signature</code> = HMAC-SHA256 of the raw body using your API key. Always verify it, and confirm the order with the status API.</p></div>""")
+<div class="pagehead"><h1>API docs</h1></div>
+<div class="card"><p class="mut">Base URL: <b>{{base}}</b> &nbsp; Auth: header <code>X-API-Key: YOUR_KEY</code> (create it in the API Keys menu). Set your webhook on the <a href="/webhooks">Webhooks</a> page.</p>
+<pre style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5">{{txt}}</pre>
+<a class="btn" href="/docs.txt" download>Download TXT</a></div>""")
 
 ACCOUNT = page('layout_user.html', 'account', 'Account', """
 <div class="pagehead"><h1>Account</h1></div>
@@ -363,15 +351,17 @@ ADMIN_SET = page('layout_admin.html', 'set', 'Settings', """
 <label>Payment-received keywords in the email (comma separated, any one must match)</label><input name="fampay_keywords" value="{{s.fampay_keywords}}">
 <label>Order / QR expiry (minutes)</label><input name="order_expiry_min" type="number" min="3" max="120" value="{{s.order_expiry_min}}">
 <label>Paytm environment</label><select name="paytm_env"><option value="prod" {{ 'selected' if s.paytm_env!='stage' }}>Production</option><option value="stage" {{ 'selected' if s.paytm_env=='stage' }}>Staging (test)</option></select>
-<h3 style="margin-top:22px">Auto backup (every 12 hours)</h3>
-<p class="mut">Set a Telegram bot token and your chat ID and every backup is sent to you as a file. Leave the token blank to keep the saved one.</p>
+<h3 style="margin-top:22px">Auto backup to Telegram</h3>
+<p class="mut">Create a bot with @BotFather, paste its token here, and add your chat ID. A full backup (all users, gateways, orders, settings) arrives as a zip file. Send /start to your bot first. Leave the token blank to keep the saved one.</p>
 <div class="row"><div><label>Telegram bot token</label><input name="tg_token" type="password" placeholder="{{ 'saved' if s.tg_token else 'not set' }}" autocomplete="off"></div>
 <div><label>Telegram chat ID</label><input name="tg_chat" value="{{s.tg_chat}}"></div></div>
+<label>Send backup every (hours)</label><input name="backup_hours" type="number" min="1" max="24" value="{{s.backup_hours}}">
 <p class="mut">Last backup: {{last_backup}} · {{s.last_backup_msg or '-'}}</p>
 <button class="btn full">Save</button></form></div>
 <div class="card"><h2>Backup &amp; restore</h2>
 <div class="row"><a class="btn" href="/admin/backup" style="flex:0">Download backup</a>
-<form method="post" action="/admin/backup-now" style="flex:0"><input type="hidden" name="csrf" value="{{csrf}}"><button class="btn gray">Backup now (Telegram)</button></form></div>
+<form method="post" action="/admin/backup-now" style="flex:0"><input type="hidden" name="csrf" value="{{csrf}}"><button class="btn gray">Backup now (Telegram)</button></form>
+<form method="post" action="/admin/telegram-test" style="flex:0"><input type="hidden" name="csrf" value="{{csrf}}"><button class="btn gray">Test Telegram</button></form></div>
 <form method="post" action="/admin/restore" enctype="multipart/form-data" class="row" style="margin-top:16px"><input type="hidden" name="csrf" value="{{csrf}}">
 <input type="file" name="file" required><button class="btn gray" style="flex:0">Restore</button></form></div>""")
 
