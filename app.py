@@ -58,6 +58,13 @@ def csrf_guard():
                 flash("Session expired. Please try again.", "warn"); return redirect(request.path)
             abort(400, "Bad CSRF token. Reload the page.")
 
+@app.errorhandler(Exception)
+def on_error(e):
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException): return e
+    import traceback; traceback.print_exc()          # full error goes to the Render log
+    return ("Something went wrong on the server. Please go back and try again.", 500)
+
 @app.after_request
 def headers(r):
     r.headers["X-Frame-Options"] = "DENY"
