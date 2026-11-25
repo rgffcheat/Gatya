@@ -30,7 +30,7 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.jinja_loader = DictLoader({**TEMPLATES, **TEMPLATES_GW})
 app.jinja_env.globals.update(money=money, ist=ist)
-app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax", PERMANENT_SESSION_LIFETIME=3650 * 86400,
                   SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE") == "1",
                   MAX_CONTENT_LENGTH=50 * 1024 * 1024)
 app.secret_key = SECRET
@@ -93,13 +93,28 @@ def fail(key):
 
 def ip(): return request.remote_addr or ""
 
+def _new_visitor():
+    """No user login: every new browser silently gets its own private account (kept by a long-lived cookie)."""
+    for _ in range(5):
+        un = "u" + secrets.token_hex(4)
+        try:
+            cur = db().execute("INSERT INTO users(username,password_hash,phone,email,created) VALUES(?,?,?,?,?)",
+                               (un, "!" + secrets.token_hex(16), "", "", now()))
+            db().commit(); return cur.lastrowid
+        except sqlite3.IntegrityError:
+            continue
+    abort(500)
+
 def login_required(f):
     @wraps(f)
     def w(*a, **k):
-        if not session.get("uid"): return redirect("/login")
-        u = db().execute("SELECT * FROM users WHERE id=?", (session["uid"],)).fetchone()
-        if not u or u["banned"]:
-            session.pop("uid", None); flash("Account unavailable.", "err"); return redirect("/login")
+        u = None
+        if session.get("uid"):
+            u = db().execute("SELECT * FROM users WHERE id=?", (session["uid"],)).fetchone()
+        if not u:
+            session["uid"] = _new_visitor(); session.permanent = True
+            u = db().execute("SELECT * FROM users WHERE id=?", (session["uid"],)).fetchone()
+        if u["banned"]: abort(403, "This account is banned.")
         g.user = u
         return f(*a, **k)
     return w
@@ -107,64 +122,22 @@ def login_required(f):
 def admin_required(f):
     @wraps(f)
     def w(*a, **k):
-        if not session.get("admin"): return redirect("/admin/login")
+        if not session.get("admin") or time.time() - session.get("admin_ts", 0) > 12 * 3600:
+            session.pop("admin", None); return redirect("/admin/login")
         return f(*a, **k)
     return w
 
 # ---------- user routes ----------
 @app.route("/")
 def index():
-    return redirect("/dashboard" if session.get("uid") else "/login")
+    return redirect("/dashboard")
 
-@app.route("/signup", methods=["GET", "POST"])
-def signup():
-    if request.method == "POST":
-        un = request.form.get("username", "").strip()
-        ph = re.sub(r"[^\d+]", "", request.form.get("phone", ""))
-        em = request.form.get("email", "").strip().lower()
-        pw = request.form.get("password", "").strip()
-        if un.lower() in [x[0] for x in ADMIN_ACCOUNTS] + ["admin"]:
-            flash("This username is not available.", "err")
-        elif not re.fullmatch(r"[A-Za-z0-9_.]{3,30}", un):
-            flash("Username: 3-30 letters, numbers, _ or .", "err")
-        elif len(ph) < 10: flash("Enter a valid phone number.", "err")
-        elif not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", em): flash("Enter a valid Gmail.", "err")
-        elif len(pw) < 6: flash("Password must be at least 6 characters.", "err")
-        else:
-            try:
-                cur = db().execute("INSERT INTO users(username,password_hash,phone,email,created) VALUES(?,?,?,?,?)",
-                                   (un, generate_password_hash(pw), ph, em, now()))
-                db().commit()
-                session.clear(); session["uid"] = cur.lastrowid; session["csrf"] = secrets.token_hex(16)
-                flash("Welcome! Your account is ready.", "ok"); return redirect("/dashboard")
-            except sqlite3.IntegrityError:
-                flash("Username already taken.", "err")
-    return render_template("auth.html", mode="signup", csrf=session["csrf"])
-
+# user login / signup / logout were removed: visitors go straight to their dashboard
 @app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        un = request.form.get("username", "").strip(); raw = request.form.get("password", "")
-        k = "u:%s:%s" % (ip(), un.lower())
-        if throttled(k, 10): flash("Too many attempts. Try again in a few minutes.", "err")
-        else:
-            if is_admin_cred(un, raw):
-                session.clear(); session["admin"] = True; session["csrf"] = secrets.token_hex(16)
-                return redirect("/admin")
-            u = db().execute("SELECT * FROM users WHERE username=? COLLATE NOCASE", (un,)).fetchone()
-            if u and (check_password_hash(u["password_hash"], raw) or (raw != raw.strip() and check_password_hash(u["password_hash"], raw.strip()))):
-                if u["banned"]: flash("This account is banned.", "err")
-                else:
-                    _attempts.pop(k, None)
-                    session.clear(); session["uid"] = u["id"]; session["csrf"] = secrets.token_hex(16)
-                    return redirect("/dashboard")
-            else:
-                fail(k); flash("Wrong username or password.", "err")
-    return render_template("auth.html", mode="login", csrf=session["csrf"])
-
+@app.route("/signup", methods=["GET", "POST"])
 @app.route("/logout")
-def logout():
-    session.pop("uid", None); return redirect("/login")
+def _no_user_login():
+    return redirect("/dashboard")
 
 @app.route("/dashboard")
 @login_required
@@ -192,17 +165,6 @@ def gateway_new():
 def account():
     return render_template("account.html", u=g.user, csrf=session["csrf"])
 
-@app.route("/change-password", methods=["POST"])
-@login_required
-def change_password():
-    if not check_password_hash(g.user["password_hash"], request.form.get("old", "")):
-        flash("Current password is wrong.", "err")
-    elif len(request.form.get("new", "")) < 6: flash("New password too short.", "err")
-    else:
-        db().execute("UPDATE users SET password_hash=? WHERE id=?", (generate_password_hash(request.form["new"]), g.user["id"]))
-        db().commit(); flash("Password updated.", "ok")
-    return redirect("/account")
-
 # ---------- admin routes ----------
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
@@ -210,7 +172,7 @@ def admin_login():
         k = "a:" + ip()
         if throttled(k, 5): flash("Too many attempts. Wait a few minutes.", "err")
         elif is_admin_cred(request.form.get("username"), request.form.get("password")):
-            session["admin"] = True; return redirect("/admin")
+            session["admin"] = True; session["admin_ts"] = time.time(); return redirect("/admin")
         else:
             fail(k); flash("Wrong admin credentials.", "err")
     return render_template("admin_login.html", csrf=session["csrf"])

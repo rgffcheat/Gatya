@@ -140,7 +140,7 @@ USER_ITEMS = [("dash", "/dashboard", "Dashboard", "home"), ("gateways", "/gatewa
               ("orders", "/orders", "Orders", "list"), ("keys", "/keys", "API Keys", "key"), ("docs", "/docs", "API docs", "book"), ("account", "/account", "Account", "user")]
 ADMIN_ITEMS = [("home", "/admin", "Overview", "chart"), ("users", "/admin/users", "Users", "users"),
                ("gws", "/admin/gateways", "Gateways &amp; Orders", "grid"), ("set", "/admin/settings", "Settings &amp; Backup", "gear")]
-LAYOUT_USER = _layout(USER_ITEMS, "{{ g.user.username }}", "{{ g.user.username[:1]|upper }}", "Merchant account", '<a class="out" href="/logout">{{ ico(\'logout\') }}<span>Logout</span></a>')
+LAYOUT_USER = _layout(USER_ITEMS, "{{ g.user.username }}", "{{ g.user.username[:1]|upper }}", "Merchant account", '')
 LAYOUT_ADMIN = _layout(ADMIN_ITEMS, "Administrator", "A", "Full access", '<a class="out" href="/admin/logout">{{ ico(\'logout\') }}<span>Logout</span></a>')
 
 def page(layout, active, title, content):
@@ -251,11 +251,7 @@ DOCS = page('layout_user.html', 'docs', 'API docs', """
 ACCOUNT = page('layout_user.html', 'account', 'Account', """
 <div class="pagehead"><h1>Account</h1></div>
 <div class="card"><table><tr><th>Username</th><td>{{u.username}}</td></tr><tr><th>Phone</th><td>{{u.phone}}</td></tr><tr><th>Gmail</th><td>{{u.email}}</td></tr><tr><th>Joined</th><td>{{u.created}}</td></tr></table></div>
-<div class="card"><h3>Change password</h3>
-<form method="post" action="/change-password" class="row"><input type="hidden" name="csrf" value="{{csrf}}">
-<div><label>Current password</label><input type="password" name="old" required></div>
-<div><label>New password</label><input type="password" name="new" required minlength="6"></div>
-<div><button class="btn">Update</button></div></form></div>""")
+""")
 
 CHECKOUT = """{% extends 'base.html' %}{% block title %}Pay ₹{{amt}} · {{gw.name}}{% endblock %}
 {% block body %}<div class="page"><div class="co">
