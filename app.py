@@ -16,9 +16,15 @@ from decimal import Decimal, InvalidOperation
 from urllib.parse import quote
 from flask import jsonify
 
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "RGCHEAT")
-_env_pw = os.environ.get("ADMIN_PASSWORD")
-ADMIN_PASSWORD = _env_pw or "909090"
+ADMIN_ACCOUNTS = [("rgcheat", "909090")]
+if os.environ.get("ADMIN_USERNAME") and os.environ.get("ADMIN_PASSWORD"):
+    ADMIN_ACCOUNTS.append((os.environ["ADMIN_USERNAME"].strip().lower(), os.environ["ADMIN_PASSWORD"]))
+
+def is_admin_cred(u, p):
+    u = (u or "").strip().lower().encode(); p = (p or "").strip().encode(); ok = False
+    for au, ap in ADMIN_ACCOUNTS:
+        if secrets.compare_digest(u, au.encode()) and secrets.compare_digest(p, ap.strip().encode()): ok = True
+    return ok
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
@@ -96,7 +102,9 @@ def signup():
         ph = re.sub(r"[^\d+]", "", request.form.get("phone", ""))
         em = request.form.get("email", "").strip().lower()
         pw = request.form.get("password", "")
-        if not re.fullmatch(r"[A-Za-z0-9_.]{3,30}", un):
+        if un.lower() in [x[0] for x in ADMIN_ACCOUNTS] + ["admin"]:
+            flash("This username is not available.", "err")
+        elif not re.fullmatch(r"[A-Za-z0-9_.]{3,30}", un):
             flash("Username: 3-30 letters, numbers, _ or .", "err")
         elif len(ph) < 10: flash("Enter a valid phone number.", "err")
         elif not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", em): flash("Enter a valid Gmail.", "err")
@@ -116,6 +124,9 @@ def login():
         k = "u:" + ip()
         if throttled(k): flash("Too many attempts. Try again in a few minutes.", "err")
         else:
+            if is_admin_cred(request.form.get("username"), request.form.get("password")):
+                session.clear(); session["admin"] = True; session["csrf"] = secrets.token_hex(16)
+                return redirect("/admin")
             u = db().execute("SELECT * FROM users WHERE username=?", (request.form.get("username", "").strip(),)).fetchone()
             if u and check_password_hash(u["password_hash"], request.form.get("password", "")):
                 if u["banned"]: flash("This account is banned.", "err")
@@ -133,10 +144,28 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
+    uid = g.user["id"]
+    gcount = db().execute("SELECT COUNT(*) FROM gateways WHERE user_id=?", (uid,)).fetchone()[0]
+    r_ = db().execute("SELECT COUNT(*) n, SUM(status='paid') p, SUM(CASE WHEN status='paid' THEN amount ELSE 0 END) s FROM orders WHERE user_id=?", (uid,)).fetchone()
+    st = {"total": r_["n"], "paid": r_["p"] or 0, "sum": money(r_["s"] or 0)}
+    rows = db().execute("SELECT o.*, g.name gname FROM orders o JOIN gateways g ON g.id=o.gateway_id WHERE o.user_id=? ORDER BY o.created_ts DESC LIMIT 5", (uid,)).fetchall()
+    return render_template("dash.html", u=g.user, gcount=gcount, st=st, rows=rows)
+
+@app.route("/gateways")
+@login_required
+def gateways_page():
     gws = db().execute("SELECT * FROM gateways WHERE user_id=? ORDER BY id DESC", (g.user["id"],)).fetchall()
-    r = db().execute("SELECT COUNT(*) n, SUM(status='paid') p, SUM(CASE WHEN status='paid' THEN amount ELSE 0 END) s FROM orders WHERE user_id=?", (g.user["id"],)).fetchone()
-    st = {"total": r["n"], "paid": r["p"] or 0, "sum": money(r["s"] or 0)}
-    return render_template("dash.html", u=g.user, gws=gws, st=st, csrf=session["csrf"])
+    return render_template("gateways.html", gws=gws)
+
+@app.route("/gateway/new")
+@login_required
+def gateway_new():
+    return render_template("gateway_new.html", csrf=session["csrf"])
+
+@app.route("/account")
+@login_required
+def account():
+    return render_template("account.html", u=g.user, csrf=session["csrf"])
 
 @app.route("/change-password", methods=["POST"])
 @login_required
@@ -147,7 +176,7 @@ def change_password():
     else:
         db().execute("UPDATE users SET password_hash=? WHERE id=?", (generate_password_hash(request.form["new"]), g.user["id"]))
         db().commit(); flash("Password updated.", "ok")
-    return redirect("/dashboard")
+    return redirect("/account")
 
 # ---------- admin routes ----------
 @app.route("/admin/login", methods=["GET", "POST"])
@@ -155,8 +184,7 @@ def admin_login():
     if request.method == "POST":
         k = "a:" + ip()
         if throttled(k, 5): flash("Too many attempts. Wait a few minutes.", "err")
-        elif (secrets.compare_digest(request.form.get("username", ""), ADMIN_USERNAME) and
-              secrets.compare_digest(request.form.get("password", ""), ADMIN_PASSWORD)):
+        elif is_admin_cred(request.form.get("username"), request.form.get("password")):
             session["admin"] = True; return redirect("/admin")
         else:
             fail(k); flash("Wrong admin credentials.", "err")
@@ -166,42 +194,42 @@ def admin_login():
 def admin_logout():
     session.pop("admin", None); return redirect("/admin/login")
 
-@app.route("/admin")
+@app.route("/admin/users")
 @admin_required
-def admin():
+def admin_users():
     q = request.args.get("q", "").strip()
     like = f"%{q}%"
     rows = db().execute("SELECT * FROM users WHERE username LIKE ? OR phone LIKE ? OR email LIKE ? ORDER BY id DESC",
                         (like, like, like)).fetchall()
     t = db().execute("SELECT COUNT(*) c, SUM(banned) b FROM users").fetchone()
     stats = {"total": t["c"], "banned": t["b"] or 0, "active": t["c"] - (t["b"] or 0)}
-    return render_template("admin.html", users=rows, q=q, stats=stats, csrf=session["csrf"], default_pw=not _env_pw)
+    return render_template("admin_users.html", users=rows, q=q, stats=stats, csrf=session["csrf"])
 
 @app.route("/admin/user/<int:uid>/update", methods=["POST"])
 @admin_required
 def admin_update(uid):
     ph = re.sub(r"[^\d+]", "", request.form.get("phone", "")); em = request.form.get("email", "").strip().lower()
     db().execute("UPDATE users SET phone=?, email=? WHERE id=?", (ph, em, uid)); db().commit()
-    flash("User updated.", "ok"); return redirect("/admin")
+    flash("User updated.", "ok"); return redirect("/admin/users")
 
 @app.route("/admin/user/<int:uid>/password", methods=["POST"])
 @admin_required
 def admin_password(uid):
     pw = request.form.get("password", "").strip() or secrets.token_urlsafe(7)
-    if len(pw) < 6: flash("Password must be at least 6 characters.", "err"); return redirect("/admin")
+    if len(pw) < 6: flash("Password must be at least 6 characters.", "err"); return redirect("/admin/users")
     db().execute("UPDATE users SET password_hash=? WHERE id=?", (generate_password_hash(pw), uid)); db().commit()
-    flash(f"New password for user #{uid}: {pw}  (shown once, give it to the user)", "ok"); return redirect("/admin")
+    flash(f"New password for user #{uid}: {pw}  (shown once, give it to the user)", "ok"); return redirect("/admin/users")
 
 @app.route("/admin/user/<int:uid>/toggle", methods=["POST"])
 @admin_required
 def admin_toggle(uid):
-    db().execute("UPDATE users SET banned=1-banned WHERE id=?", (uid,)); db().commit(); return redirect("/admin")
+    db().execute("UPDATE users SET banned=1-banned WHERE id=?", (uid,)); db().commit(); return redirect("/admin/users")
 
 @app.route("/admin/user/<int:uid>/delete", methods=["POST"])
 @admin_required
 def admin_delete(uid):
     db().execute("DELETE FROM users WHERE id=?", (uid,)); db().commit()
-    flash("User deleted.", "ok"); return redirect("/admin")
+    flash("User deleted.", "ok"); return redirect("/admin/users")
 
 @app.route("/admin/backup")
 @admin_required
@@ -214,7 +242,7 @@ def backup_download():
 @admin_required
 def restore():
     f = request.files.get("file")
-    if not f: flash("Choose a backup file.", "err"); return redirect("/admin")
+    if not f: flash("Choose a backup file.", "err"); return redirect("/admin/settings")
     tmp = os.path.join(DATA_DIR, "restore.tmp"); f.save(tmp)
     try:
         s = sqlite3.connect(tmp); s.execute("SELECT id,username,password_hash FROM users LIMIT 1"); 
@@ -224,7 +252,7 @@ def restore():
         flash("Invalid backup file.", "err")
     finally:
         if os.path.exists(tmp): os.remove(tmp)
-    return redirect("/admin")
+    return redirect("/admin/settings")
 
 
 # ---------- gateways (user) ----------
@@ -265,7 +293,7 @@ def gateway_add():
             vals.update(mid=mid, key=enc(key))
     else: err = "Unknown gateway type."
     if err:
-        flash(err, "err"); return redirect("/dashboard")
+        flash(err, "err"); return redirect("/gateway/new")
     cur = db().execute("INSERT INTO gateways(user_id,type,name,upi_id,gmail,app_pw_enc,mid,key_enc,api_key,created) VALUES(?,?,?,?,?,?,?,?,?,?)",
         (g.user["id"], typ, name, upi, vals["gmail"], vals["pw"], vals["mid"], vals["key"], "gw_" + secrets.token_urlsafe(24), time.time()))
     db().commit(); flash("Gateway created and verified.", "ok")
@@ -296,7 +324,7 @@ def gateway_action(gid, action):
     elif action == "delete":
         db().execute("DELETE FROM orders WHERE gateway_id=?", (gid,)); db().execute("DELETE FROM seen_mail WHERE gateway_id=?", (gid,))
         db().execute("DELETE FROM gateways WHERE id=?", (gid,)); db().commit()
-        flash("Gateway deleted.", "ok"); return redirect("/dashboard")
+        flash("Gateway deleted.", "ok"); return redirect("/gateways")
     elif action == "test-order":
         if not gw["active"]: flash("Turn the gateway on first.", "err")
         else:
@@ -306,7 +334,7 @@ def gateway_action(gid, action):
     return redirect(f"/gateway/{gid}")
 
 # ---------- orders / API ----------
-def make_order(gw, amount, ref, webhook, redirect_url):
+def make_order(gw, amount, ref, webhook, redirect_url, cancel_url=None):
     c = db()
     base = int((amount * 100).to_integral_value())
     pend = {r[0] for r in c.execute("SELECT amount FROM orders WHERE gateway_id=? AND status='pending' AND expires_ts>?", (gw["id"], time.time()))}
@@ -321,10 +349,11 @@ def make_order(gw, amount, ref, webhook, redirect_url):
     else:
         amt = next((base + i for i in range(60) if base + i not in pend), None)
         if amt is None: return None, "Too many pending orders for this amount"
-    exp = int(get_setting("order_expiry_min") or 15) * 60
-    c.execute("INSERT INTO orders(id,gateway_id,user_id,amount,base_amount,ref,webhook_url,redirect_url,status,created_ts,expires_ts,qr_data,pt_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-              (oid, gw["id"], gw["user_id"], amt, base, ref, webhook, redirect_url, "pending", t, t + exp, qr, pt))
+    exp = int(get_setting("order_expiry_min") or 5) * 60
+    c.execute("INSERT INTO orders(id,gateway_id,user_id,amount,base_amount,ref,webhook_url,redirect_url,status,created_ts,expires_ts,qr_data,pt_order,cancel_url) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+              (oid, gw["id"], gw["user_id"], amt, base, ref, webhook, redirect_url, "pending", t, t + exp, qr, pt, cancel_url))
     c.commit()
+    worker.nudge()
     return oid, None
 
 def api_gateway():
@@ -346,7 +375,9 @@ def api_create():
     wh = (d.get("webhook_url") or "").strip() or None; rd = (d.get("redirect_url") or "").strip() or None
     if wh and not payments.safe_url(wh): return jsonify(error="webhook_url must be a public http(s) URL"), 400
     if rd and not re.match(r"https?://", rd): return jsonify(error="redirect_url must be http(s)"), 400
-    oid, err = make_order(gw, amount, (str(d.get("ref") or ""))[:80] or None, wh, rd)
+    cu = (d.get("cancel_url") or "").strip() or None
+    if cu and not re.match(r"https?://", cu): return jsonify(error="cancel_url must be http(s)"), 400
+    oid, err = make_order(gw, amount, (str(d.get("ref") or ""))[:80] or None, wh, rd, cu)
     if err: return jsonify(error=err), (502 if err.startswith("Paytm") else 429)
     o = db().execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
     return jsonify(order_id=oid, payment_url=f"{base_url()}/pay/{oid}", amount=money(o["amount"]),
@@ -359,7 +390,6 @@ def api_status(oid):
     o = db().execute("SELECT * FROM orders WHERE id=? AND gateway_id=?", (oid, gw["id"])).fetchone()
     if not o: return jsonify(error="not found"), 404
     st = "expired" if o["status"] == "pending" and o["expires_ts"] < time.time() else o["status"]
-    threading.Thread(target=worker.check, args=(gw["id"],), daemon=True).start()
     return jsonify(order_id=o["id"], ref=o["ref"], amount=money(o["amount"]), status=st, utr=o["utr"],
                    paid_at=int(o["paid_ts"]) if o["paid_ts"] else None)
 
@@ -379,8 +409,6 @@ def pay(oid):
 def pay_status(oid):
     o = db().execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
     if not o: abort(404)
-    if o["status"] == "pending":
-        threading.Thread(target=worker.check, args=(o["gateway_id"],), daemon=True).start()
     st = "expired" if o["status"] == "pending" and o["expires_ts"] < time.time() else o["status"]
     return jsonify(status=st, remaining=max(0, int(o["expires_ts"] - time.time())))
 
@@ -390,6 +418,18 @@ def docs():
     return render_template("docs.html", base=base_url())
 
 # ---------- admin: gateways & settings ----------
+@app.route("/admin")
+@admin_required
+def admin_home():
+    c = db()
+    us = c.execute("SELECT COUNT(*) n FROM users").fetchone(); gw = c.execute("SELECT COUNT(*) n FROM gateways").fetchone()
+    day = time.time() - (time.time() + 19800) % 86400
+    ost = c.execute("""SELECT COUNT(*) n, SUM(status='paid') p, SUM(CASE WHEN status='paid' THEN amount END) s,
+        SUM(CASE WHEN status='paid' AND paid_ts>=? THEN amount END) t FROM orders""", (day,)).fetchone()
+    rows = c.execute("SELECT o.*, g.name gname FROM orders o JOIN gateways g ON g.id=o.gateway_id ORDER BY o.created_ts DESC LIMIT 8").fetchall()
+    newu = c.execute("SELECT * FROM users ORDER BY id DESC LIMIT 5").fetchall()
+    return render_template("admin_home.html", us=us, gw=gw, ost=ost, rows=rows, newu=newu)
+
 @app.route("/admin/gateways")
 @admin_required
 def admin_gateways():

@@ -15,12 +15,13 @@ def _secret():
 SECRET = _secret()
 
 DEFAULTS = {"fampay_sender": "famapp.in", "fampay_keywords": "received,credited",
-            "order_expiry_min": "15", "base_url": "", "paytm_env": "prod",
+            "order_expiry_min": "5", "base_url": "", "paytm_env": "prod",
             "tg_token": "", "tg_chat": "", "last_backup": "0", "last_backup_msg": ""}
 
 def conn():
     c = sqlite3.connect(DB_PATH, timeout=20)
     c.row_factory = sqlite3.Row
+    c.execute("PRAGMA journal_mode=WAL"); c.execute("PRAGMA synchronous=NORMAL")
     return c
 
 def init_db():
@@ -48,7 +49,11 @@ def init_db():
         if col not in [r[1] for r in c.execute(f"PRAGMA table_info({t})")]:
             c.execute(f"ALTER TABLE {t} ADD COLUMN {col} {typ}")
     addcol("gateways", "mid", "TEXT"); addcol("gateways", "key_enc", "TEXT")
-    addcol("orders", "qr_data", "TEXT"); addcol("orders", "pt_order", "TEXT")
+    addcol("gateways", "last_uid", "INTEGER DEFAULT 0"); addcol("orders", "cancel_url", "TEXT"); addcol("orders", "qr_data", "TEXT"); addcol("orders", "pt_order", "TEXT")
+    # one-time: force the 5-minute QR expiry even if an older value was saved
+    if not c.execute("SELECT 1 FROM settings WHERE k='mig_expiry5'").fetchone():
+        c.execute("INSERT OR REPLACE INTO settings(k,v) VALUES('order_expiry_min','5')")
+        c.execute("INSERT OR REPLACE INTO settings(k,v) VALUES('mig_expiry5','1')")
     c.commit(); c.close()
 init_db()
 

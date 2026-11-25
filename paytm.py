@@ -37,7 +37,7 @@ def _post(path, body, key, head=None):
     h = dict(head or {}); h["signature"] = signature(body_str, key)
     data = ('{"body":' + body_str + ',"head":' + json.dumps(h, separators=(",", ":")) + '}').encode()
     req = urllib.request.Request(_host() + path, data=data, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=15) as r:
+    with urllib.request.urlopen(req, timeout=10) as r:
         return json.loads(r.read().decode())
 
 def create_qr(mid, key, order_id, amount):
@@ -67,7 +67,7 @@ def test_creds(mid, key):
     if "mid" in low and ("invalid" in low or "not" in low): return False, f"Merchant ID looks wrong ({msg})."
     return True, f"Paytm accepted the credentials ({msg or 'ok'})."
 
-def check_gateway(gid, min_gap=6):
+def check_gateway(gid, min_gap=1.5):
     lock = _locks.setdefault(gid, threading.Lock())
     if not lock.acquire(blocking=False): return
     try:

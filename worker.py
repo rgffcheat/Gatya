@@ -1,10 +1,21 @@
 import time, threading
+from concurrent.futures import ThreadPoolExecutor
 from core import conn
 import fampay, paytm, backup
 
-def check(gid):
-    c = conn(); r = c.execute("SELECT type FROM gateways WHERE id=?", (gid,)).fetchone(); c.close()
-    if r: (fampay if r["type"] == "fampay" else paytm).check_gateway(gid)
+POOL = ThreadPoolExecutor(max_workers=6)   # at most 6 mailbox/Paytm checks at the same time
+_inflight, _lk, _wake = set(), threading.Lock(), threading.Event()
+
+def nudge():
+    _wake.set()
+
+def _run(gid, typ):
+    try:
+        (fampay if typ == "fampay" else paytm).check_gateway(gid)
+    except Exception:
+        pass
+    finally:
+        with _lk: _inflight.discard(gid)
 
 def loop():
     n = 0
@@ -12,17 +23,22 @@ def loop():
         try:
             c = conn()
             c.execute("UPDATE orders SET status='expired' WHERE status='pending' AND expires_ts<?", (time.time(),)); c.commit()
-            ids = [r[0] for r in c.execute("""SELECT DISTINCT g.id FROM gateways g JOIN orders o ON o.gateway_id=g.id
-                   WHERE g.active=1 AND o.status='pending'""")]
+            rows = c.execute("""SELECT DISTINCT g.id, g.type FROM gateways g JOIN orders o ON o.gateway_id=g.id
+                                WHERE g.active=1 AND o.status='pending'""").fetchall()
             c.close()
-            for gid in ids: check(gid)
+            for r in rows:
+                with _lk:
+                    if r["id"] in _inflight: continue
+                    _inflight.add(r["id"])
+                POOL.submit(_run, r["id"], r["type"])
         except Exception:
             pass
         try:
-            if n % 4 == 0: backup.maybe_auto()
+            if n % 60 == 0: backup.maybe_auto()
         except Exception:
             pass
-        n += 1; time.sleep(15)
+        n += 1
+        _wake.wait(1); _wake.clear()
 
 def start():
     threading.Thread(target=loop, daemon=True).start()
