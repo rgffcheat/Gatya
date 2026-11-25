@@ -31,7 +31,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.jinja_loader = DictLoader({**TEMPLATES, **TEMPLATES_GW})
 app.jinja_env.globals.update(money=money, ist=ist)
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
-                  SESSION_COOKIE_SECURE=bool(os.environ.get("RENDER")),
+                  SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE") == "1",
                   MAX_CONTENT_LENGTH=50 * 1024 * 1024)
 app.secret_key = SECRET
 
@@ -54,12 +54,15 @@ def csrf_guard():
         session["csrf"] = secrets.token_hex(16)
     if request.method == "POST" and not request.path.startswith("/api/"):
         if not secrets.compare_digest(request.form.get("csrf", ""), session["csrf"]):
+            if request.path in ("/login", "/signup", "/admin/login"):
+                flash("Session expired. Please try again.", "warn"); return redirect(request.path)
             abort(400, "Bad CSRF token. Reload the page.")
 
 @app.after_request
 def headers(r):
     r.headers["X-Frame-Options"] = "DENY"
     r.headers["X-Content-Type-Options"] = "nosniff"
+    if r.mimetype == "text/html": r.headers["Cache-Control"] = "no-store"
     return r
 
 _attempts = {}
@@ -101,7 +104,7 @@ def signup():
         un = request.form.get("username", "").strip()
         ph = re.sub(r"[^\d+]", "", request.form.get("phone", ""))
         em = request.form.get("email", "").strip().lower()
-        pw = request.form.get("password", "")
+        pw = request.form.get("password", "").strip()
         if un.lower() in [x[0] for x in ADMIN_ACCOUNTS] + ["admin"]:
             flash("This username is not available.", "err")
         elif not re.fullmatch(r"[A-Za-z0-9_.]{3,30}", un):
@@ -111,9 +114,11 @@ def signup():
         elif len(pw) < 6: flash("Password must be at least 6 characters.", "err")
         else:
             try:
-                db().execute("INSERT INTO users(username,password_hash,phone,email,created) VALUES(?,?,?,?,?)",
-                             (un, generate_password_hash(pw), ph, em, now()))
-                db().commit(); flash("Account created. Please login.", "ok"); return redirect("/login")
+                cur = db().execute("INSERT INTO users(username,password_hash,phone,email,created) VALUES(?,?,?,?,?)",
+                                   (un, generate_password_hash(pw), ph, em, now()))
+                db().commit()
+                session.clear(); session["uid"] = cur.lastrowid; session["csrf"] = secrets.token_hex(16)
+                flash("Welcome! Your account is ready.", "ok"); return redirect("/dashboard")
             except sqlite3.IntegrityError:
                 flash("Username already taken.", "err")
     return render_template("auth.html", mode="signup", csrf=session["csrf"])
@@ -121,16 +126,18 @@ def signup():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        k = "u:" + ip()
-        if throttled(k): flash("Too many attempts. Try again in a few minutes.", "err")
+        un = request.form.get("username", "").strip(); raw = request.form.get("password", "")
+        k = "u:%s:%s" % (ip(), un.lower())
+        if throttled(k, 10): flash("Too many attempts. Try again in a few minutes.", "err")
         else:
-            if is_admin_cred(request.form.get("username"), request.form.get("password")):
+            if is_admin_cred(un, raw):
                 session.clear(); session["admin"] = True; session["csrf"] = secrets.token_hex(16)
                 return redirect("/admin")
-            u = db().execute("SELECT * FROM users WHERE username=?", (request.form.get("username", "").strip(),)).fetchone()
-            if u and check_password_hash(u["password_hash"], request.form.get("password", "")):
+            u = db().execute("SELECT * FROM users WHERE username=? COLLATE NOCASE", (un,)).fetchone()
+            if u and (check_password_hash(u["password_hash"], raw) or check_password_hash(u["password_hash"], raw.strip())):
                 if u["banned"]: flash("This account is banned.", "err")
                 else:
+                    _attempts.pop(k, None)
                     session.clear(); session["uid"] = u["id"]; session["csrf"] = secrets.token_hex(16)
                     return redirect("/dashboard")
             else:
@@ -284,13 +291,12 @@ def gateway_add():
             if not ok: err = msg
             vals.update(gmail=gm, pw=enc(pw))
     elif typ == "paytm":
-        mid = f.get("mid", "").strip(); key = f.get("mkey", "").strip()
+        mid = f.get("mid", "").strip()
         if not re.fullmatch(r"[A-Za-z0-9@_.\-]{6,40}", mid): err = "Enter a valid Merchant ID."
-        elif len(key) != 16: err = "Merchant Key must be 16 characters."
         else:
-            ok, msg = paytm.test_creds(mid, key)
+            ok, msg = paytm.test_creds(mid)
             if not ok: err = msg
-            vals.update(mid=mid, key=enc(key))
+            vals.update(mid=mid)
     else: err = "Unknown gateway type."
     if err:
         flash(err, "err"); return redirect("/gateway/new")
@@ -313,7 +319,7 @@ def gateway_action(gid, action):
     if action == "test":
         try:
             if gw["type"] == "fampay": ok, msg = fampay.test_login(gw["gmail"], dec(gw["app_pw_enc"]))
-            else: ok, msg = paytm.test_creds(gw["mid"], dec(gw["key_enc"]))
+            else: ok, msg = paytm.test_creds(gw["mid"], dec(gw["key_enc"]) if gw["key_enc"] else None)
         except Exception: ok, msg = False, "Stored secret cannot be read (SECRET_KEY changed?). Delete and re-add the gateway."
         flash(msg, "ok" if ok else "err")
     elif action == "toggle":
@@ -341,11 +347,8 @@ def make_order(gw, amount, ref, webhook, redirect_url, cancel_url=None):
     if len(pend) >= 300: return None, "Too many pending orders"
     oid = secrets.token_hex(12); t = time.time(); qr = pt = None
     if gw["type"] == "paytm":
-        amt = base; pt = "PG" + oid
-        try: key = dec(gw["key_enc"])
-        except Exception: return None, "Gateway key unreadable"
-        ok, qr = paytm.create_qr(gw["mid"], key, pt, money(amt))
-        if not ok: return None, "Paytm: " + qr
+        amt = base; pt = paytm.new_order_id()
+        qr = paytm.build_upi(gw["upi_id"], gw["name"], money(amt), pt)
     else:
         amt = next((base + i for i in range(60) if base + i not in pend), None)
         if amt is None: return None, "Too many pending orders for this amount"

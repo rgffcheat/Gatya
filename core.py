@@ -8,10 +8,19 @@ DB_PATH = os.path.join(DATA_DIR, "gateway.db")
 def _secret():
     s = os.environ.get("SECRET_KEY")
     if s: return s
+    import time
     p = os.path.join(DATA_DIR, ".secret")
     if not os.path.exists(p):
-        open(p, "w").write(secrets.token_hex(32))
-    return open(p).read().strip()
+        try:   # atomic create: several workers starting together must end up with the SAME key
+            fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            os.write(fd, secrets.token_hex(32).encode()); os.close(fd)
+        except FileExistsError:
+            pass
+    for _ in range(30):
+        v = open(p).read().strip()
+        if v: return v
+        time.sleep(0.1)
+    return secrets.token_hex(32)
 SECRET = _secret()
 
 DEFAULTS = {"fampay_sender": "famapp.in", "fampay_keywords": "received,credited",

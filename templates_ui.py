@@ -1,67 +1,109 @@
 FLASH = """{% with m=get_flashed_messages(with_categories=true) %}{% for c,t in m %}<div class="flash {{c}}">{{t}}</div>{% endfor %}{% endwith %}"""
 
-BASE = """<!doctype html><html lang="bn"><head><meta charset="utf-8">
+BASE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07080d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237c5cff'/%3E%3Cpath d='M11 24V8h6.5a4.5 4.5 0 0 1 0 9H11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <title>{% block title %}Pay Gateway{% endblock %}</title>
 <style>
-:root{--bg:#07080d;--card:#0f111a;--line:#1d2130;--txt:#e8eaf3;--mut:#8a90a6;--a:#7c5cff;--b:#00d4ff;--ok:#22c55e;--bad:#ef4444}
-*{box-sizing:border-box}html{-webkit-tap-highlight-color:transparent}
-body{margin:0;background:radial-gradient(900px 500px at 15% -10%,#1b1550 0,transparent 60%),radial-gradient(700px 400px at 100% 0,#06344a 0,transparent 55%),var(--bg);color:var(--txt);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;background-attachment:fixed}
+:root{--bg:#06070c;--card:#0e1119;--card2:#131726;--line:#1c2133;--line2:#2a3150;--txt:#eef0f7;--mut:#8b92ab;--a:#7c5cff;--a2:#4f8cff;--b:#22d3ee;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b}
+*{box-sizing:border-box}html{-webkit-tap-highlight-color:transparent;scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(900px 520px at 12% -10%,#1b1550 0,transparent 60%),radial-gradient(700px 420px at 100% 0,#06344a 0,transparent 55%),var(--bg);color:var(--txt);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;min-height:100vh;background-attachment:fixed;-webkit-font-smoothing:antialiased}
 body.open{overflow:hidden}
-a{color:var(--b);text-decoration:none}
-.logo{font-weight:800;letter-spacing:.3px;background:linear-gradient(90deg,var(--a),var(--b));-webkit-background-clip:text;color:transparent;font-size:20px}
-.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 16px;background:#07080ddd;backdrop-filter:blur(12px);border-bottom:1px solid var(--line);z-index:20}
+a{color:var(--b);text-decoration:none}a:hover{text-decoration:underline}
+::selection{background:#7c5cff66}
+.logo{font-weight:800;letter-spacing:.2px;background:linear-gradient(90deg,#b9a8ff,var(--b));-webkit-background-clip:text;background-clip:text;color:transparent;font-size:19px}
+.brand{display:flex;align-items:center;gap:10px}.brand.c{justify-content:center}
+.mark{width:34px;height:34px;border-radius:10px;flex:none;display:grid;place-items:center;background:linear-gradient(135deg,var(--a),var(--b));box-shadow:0 6px 22px #7c5cff55}
+.mark svg{width:19px;height:19px}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 16px;background:#07080dd9;backdrop-filter:blur(14px);border-bottom:1px solid var(--line);z-index:20}
 .menu-btn{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;border:1px solid var(--line);background:#11141f;color:var(--txt);cursor:pointer}
-.menu-btn svg{width:22px;height:22px}
-.grow{flex:1}
-.overlay{position:fixed;inset:0;background:#000b;opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
+.menu-btn svg{width:22px;height:22px}.grow{flex:1}
+.overlay{position:fixed;inset:0;background:#000a;backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
 body.open .overlay{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:84vw;background:linear-gradient(180deg,#0e1019,#090a11);border-right:1px solid var(--line);transform:translateX(-103%);transition:transform .28s cubic-bezier(.3,.8,.3,1);z-index:40;padding:20px 14px;display:flex;flex-direction:column;gap:4px;box-shadow:0 0 60px #7c5cff22}
-body.open .drawer{transform:none}
-.drawer .who{padding:6px 10px 16px;border-bottom:1px solid var(--line);margin-bottom:10px}
-.drawer .who small{display:block;color:var(--mut);margin-top:4px;font-size:13px}
-.drawer a{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:12px;color:#aab0c6;font-weight:600;font-size:15px}
-.drawer a:hover,.drawer a.active{background:linear-gradient(90deg,#7c5cff2b,#00d4ff14);color:#fff}
-.drawer a.active .ic{color:var(--b)}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:272px;max-width:84vw;background:linear-gradient(180deg,#0e1019,#090a11);border-right:1px solid var(--line);transform:translateX(-103%);transition:transform .28s cubic-bezier(.3,.8,.3,1);z-index:40;padding:20px 14px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+body.open .drawer{transform:none;box-shadow:0 0 60px #7c5cff30}
+.drawer .brand{padding:2px 8px 18px}.drawer .brand .logo{font-size:21px}
+.who{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#0b0d15;margin-bottom:14px}
+.who b{display:block;font-size:14px;word-break:break-all}.who small{color:var(--mut);font-size:12px}
+.av{width:38px;height:38px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--a),var(--a2))}
+.drawer a{display:flex;align-items:center;gap:13px;padding:11px 14px;border-radius:12px;color:#a7aec6;font-weight:600;font-size:14.5px;position:relative;transition:.15s}
+.drawer a:hover{background:#ffffff08;color:#fff;text-decoration:none}
+.drawer a.active{background:linear-gradient(90deg,#7c5cff30,#22d3ee12);color:#fff}
+.drawer a.active:before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(var(--a),var(--b))}
+.drawer a.active .ic{color:var(--b)}.drawer a.out{color:#f2a0a0}
 .drawer .sp{flex:1}
 .ic{width:20px;height:20px;flex:none}
-.page{max-width:1000px;margin:0 auto;padding:20px 16px 60px}
-.pagehead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 0 18px;flex-wrap:wrap}
-.pagehead h1{margin:0;font-size:24px}
-.card{background:linear-gradient(180deg,#121420a0,#0c0e16);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 0 40px #7c5cff10;margin-bottom:16px}
-.auth{max-width:420px;margin:6vh auto}
-h1,h2,h3{margin:0 0 14px}h2{font-size:19px}h3{font-size:16px}
-label{display:block;font-size:13px;color:var(--mut);margin:12px 0 6px}
-input,select{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:#0a0c14;color:var(--txt);font-size:15px;outline:none}
-input:focus,select:focus{border-color:var(--a);box-shadow:0 0 0 3px #7c5cff30}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;cursor:pointer;padding:12px 18px;border-radius:10px;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--a),#4f8cff);font-size:14px}
-.btn.full{width:100%;margin-top:18px;padding:14px}
-.btn.sm{padding:8px 13px;font-size:12px;border-radius:9px}
-.btn.gray{background:#232738}.btn.red{background:#b91c1c}.btn.green{background:#15803d}
-.flash{padding:11px 14px;border-radius:10px;margin-bottom:12px;font-size:14px;border:1px solid;word-break:break-word}
-.flash.ok{background:#22c55e18;border-color:#22c55e55;color:#86efac}
-.flash.err{background:#ef444418;border-color:#ef444455;color:#fca5a5}
-.flash.warn{background:#f59e0b18;border-color:#f59e0b55;color:#fcd34d}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.page{max-width:1000px;margin:0 auto;padding:22px 16px 70px}
+.pagehead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 0 20px;flex-wrap:wrap}
+.pagehead h1{margin:0;font-size:25px;letter-spacing:-.3px}
+@media(min-width:980px){.menu-btn,.overlay,.topbar{display:none}.drawer{transform:none}main.page{margin-left:272px;max-width:none;padding:34px 44px 80px}main.page>*{max-width:1080px}}
+.card{background:linear-gradient(180deg,#131626cc,#0d1018);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 10px 40px #00000040;margin-bottom:18px}
+.auth{max-width:430px;margin:5vh auto}
+.glow{position:relative}.glow:before{content:"";position:absolute;inset:-1px;border-radius:19px;padding:1px;background:linear-gradient(135deg,#7c5cff88,transparent 40%,#22d3ee66);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+h1,h2,h3{margin:0 0 14px;letter-spacing:-.2px}h2{font-size:18px}h3{font-size:16px}
+label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin:14px 0 6px;letter-spacing:.3px;text-transform:uppercase}
+input,select{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line2);background:#0a0c14;color:var(--txt);font-size:15px;font-family:inherit;outline:none;transition:.15s}
+input:hover,select:hover{border-color:#3a4268}
+input:focus,select:focus{border-color:var(--a);box-shadow:0 0 0 4px #7c5cff26}
+input[readonly]{color:#b9c2ff;font-family:ui-monospace,Menlo,monospace;font-size:13px}
+.pw{position:relative}.pw input{padding-right:70px}
+.eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:#1a1f33;color:#b9c2ff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;cursor:pointer;padding:12px 20px;border-radius:12px;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--a),var(--a2));font-size:14px;font-family:inherit;box-shadow:0 8px 24px #7c5cff35;transition:transform .15s,box-shadow .15s,filter .15s}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.08);box-shadow:0 12px 30px #7c5cff4d;text-decoration:none}
+.btn:active{transform:none}
+.btn.full{width:100%;margin-top:20px;padding:15px;font-size:15px}
+.btn.sm{padding:8px 14px;font-size:12.5px;border-radius:10px;box-shadow:none}
+.btn.gray{background:#1e2338;box-shadow:none;color:#dfe3f5}.btn.red{background:#b42323;box-shadow:none}.btn.green{background:#15803d;box-shadow:none}
+.flash{padding:12px 14px;border-radius:12px;margin-bottom:14px;font-size:14px;border:1px solid;word-break:break-word}
+.flash.ok{background:#22c55e14;border-color:#22c55e55;color:#86efac}
+.flash.err{background:#ef444414;border-color:#ef444455;color:#fca5a5}
+.flash.warn{background:#f59e0b14;border-color:#f59e0b55;color:#fcd34d}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px}
 .grid .card{margin:0}
-.stat span{color:var(--mut);font-size:13px}
-.stat b{display:block;font-size:26px;margin-top:6px;background:linear-gradient(90deg,#fff,#b9c2ff);-webkit-background-clip:text;color:transparent}
+.stat{display:flex;align-items:center;gap:14px;padding:18px}
+.stat .si{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;flex:none;background:linear-gradient(135deg,#7c5cff33,#22d3ee22);color:var(--b)}
+.stat span{color:var(--mut);font-size:12.5px;font-weight:500}
+.stat b{display:block;font-size:24px;margin-top:2px;letter-spacing:-.4px}
 table{width:100%;border-collapse:collapse;font-size:14px}
-th,td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
-th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
-.tag{padding:3px 9px;border-radius:99px;font-size:12px;font-weight:700;background:#ffffff14}
-.tag.ok{background:#22c55e22;color:#86efac}.tag.bad{background:#ef444422;color:#fca5a5}
-.scroll{overflow-x:auto}
-details{background:#0a0c14;border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:4px 0}
-summary{cursor:pointer;color:var(--b);font-size:13px}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.row>*{flex:1;min-width:150px}
-.mut{color:var(--mut);font-size:13px}.center{text-align:center}
-.gl{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#0a0c14;margin-bottom:10px}
-.gl .gi{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#7c5cff33,#00d4ff22);color:var(--b)}
-.gl .gt{flex:1;min-width:0}.gl .gt b{display:block}.gl .gt span{color:var(--mut);font-size:13px;word-break:break-all}
-code{background:#0a0c14;padding:2px 6px;border-radius:6px}
-pre{overflow:auto;background:#0a0c14;padding:14px;border-radius:10px}
+th,td{padding:12px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{color:var(--mut);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.7px;white-space:nowrap}
+tr:last-child td{border-bottom:0}tbody tr:hover td,table tr:hover td{background:#ffffff04}
+.tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;background:#ffffff12;color:#c9cfe6}
+.tag:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.8}
+.tag.ok{background:#22c55e1f;color:#86efac}.tag.bad{background:#ef44441f;color:#fca5a5}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+details{background:#0a0c14;border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:4px 0}
+summary{cursor:pointer;color:var(--b);font-size:13px;font-weight:600}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}.row>*{flex:1;min-width:160px}
+.mut{color:var(--mut);font-size:13.5px}.center{text-align:center}
+.note{display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:#22d3ee0f;border:1px solid #22d3ee33;color:#9fe7f5;font-size:13.5px;margin:6px 0 4px}
+.gl{display:flex;align-items:center;gap:14px;padding:16px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#121524,#0b0d15);margin-bottom:12px;transition:.18s}
+.gl:hover{border-color:#7c5cff66;transform:translateY(-2px);box-shadow:0 12px 30px #7c5cff1f;text-decoration:none}
+.gl .gi{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,#7c5cff33,#22d3ee22);color:var(--b)}
+.gl .gt{flex:1;min-width:0}.gl .gt b{display:block;font-size:15.5px}.gl .gt span{color:var(--mut);font-size:13px;word-break:break-all}
+code{background:#0a0c14;padding:2px 7px;border-radius:6px;font-size:13px;color:#b9c2ff}
+pre{overflow:auto;background:#080a11;border:1px solid var(--line);padding:16px;border-radius:12px;font-size:13px;line-height:1.55}
+/* checkout */
+.co{max-width:440px;margin:0 auto}
+.back{display:inline-flex;align-items:center;gap:6px;font-weight:700;margin:4px 0 14px;color:#b9c2ff}
+.cohead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
+.cohead .nm{font-weight:800;font-size:17px}
+.secure{font-size:11.5px;font-weight:700;color:#86efac;background:#22c55e1a;border:1px solid #22c55e44;padding:4px 10px;border-radius:99px;white-space:nowrap}
+.amt{font-size:44px;font-weight:800;letter-spacing:-1px;background:linear-gradient(90deg,#fff,#c7d0ff);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.1}
+.qrbox{background:#fff;display:inline-block;padding:14px;border-radius:18px;margin:16px 0 6px;box-shadow:0 0 0 6px #7c5cff26,0 16px 40px #00000066}
+.upirow{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#0a0c14;border:1px dashed var(--line2);border-radius:12px;padding:10px 12px;margin:14px 0;text-align:left}
+.upirow small{display:block;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.upirow b{font-size:14px;word-break:break-all}
+.bar{height:6px;border-radius:99px;background:#1a1f33;overflow:hidden;margin:14px 0 8px}
+.bar i{display:block;height:100%;width:100%;border-radius:99px;background:linear-gradient(90deg,var(--a),var(--b));transition:width 1s linear}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px;animation:pulse 1.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 #22c55e88}100%{box-shadow:0 0 0 10px #22c55e00}}
+.big{font-size:60px;line-height:1}
 </style></head><body>{% block body %}{% endblock %}</body></html>"""
+
 
 ICONS = """{% macro ico(n) %}{% set P={
 'home':'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
@@ -73,17 +115,23 @@ ICONS = """{% macro ico(n) %}{% set P={
 'gear':'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
 'logout':'<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/><path d="M16 8l4 4-4 4M20 12H9"/>',
 'chart':'<path d="M4 20V4M4 20h16"/><path d="M8 16v-5M12 16V7M16 16v-8"/>',
-'plus':'<path d="M12 5v14M5 12h14"/>'} %}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{{ P[n]|safe }}</svg>{% endmacro %}"""
+'plus':'<path d="M12 5v14M5 12h14"/>',
+'wallet':'<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H5a2 2 0 0 1-2-2"/><circle cx="16" cy="14" r="1.2"/>',
+'check':'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>',
+'shield':'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>'} %}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{{ P[n]|safe }}</svg>{% endmacro %}"""
 
-def _layout(items, who, tail):
+MARK = '<span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20V5h6a4 4 0 0 1 0 8H8"/></svg></span>'
+
+def _layout(items, who, av, sub, tail):
     links = "".join(
         '<a href="%s" class="{{ \'active\' if active==\'%s\' }}">{{ ico(\'%s\') }}<span>%s</span></a>' % (h, k, i, t)
         for k, h, t, i in items)
     return ("{% extends 'base.html' %}{% from 'icons.html' import ico %}{% block body %}"
       '<div class="topbar"><button class="menu-btn" onclick="tgl()" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>'
-      '<div class="logo">Pay Gateway</div><div class="grow"></div></div>'
+      '<div class="brand">' + MARK + '<span class="logo">Pay Gateway</span></div><div class="grow"></div></div>'
       '<div class="overlay" onclick="tgl()"></div>'
-      '<aside class="drawer"><div class="who"><div class="logo" style="font-size:22px">Pay Gateway</div><small>' + who + '</small></div>'
+      '<aside class="drawer"><div class="brand">' + MARK + '<span class="logo">Pay Gateway</span></div>'
+      '<div class="who"><div class="av">' + av + '</div><div><b>' + who + '</b><small>' + sub + '</small></div></div>'
       + links + '<div class="sp"></div>' + tail + '</aside>'
       '<main class="page">' + FLASH + '{% block content %}{% endblock %}</main>'
       '<script>function tgl(){document.body.classList.toggle("open")}</script>{% endblock %}')
@@ -92,37 +140,42 @@ USER_ITEMS = [("dash", "/dashboard", "Dashboard", "home"), ("gateways", "/gatewa
               ("orders", "/orders", "Orders", "list"), ("docs", "/docs", "API docs", "book"), ("account", "/account", "Account", "user")]
 ADMIN_ITEMS = [("home", "/admin", "Overview", "chart"), ("users", "/admin/users", "Users", "users"),
                ("gws", "/admin/gateways", "Gateways &amp; Orders", "grid"), ("set", "/admin/settings", "Settings &amp; Backup", "gear")]
-LAYOUT_USER = _layout(USER_ITEMS, "{{ g.user.username }}", '<a href="/logout">{{ ico(\'logout\') }}<span>Logout</span></a>')
-LAYOUT_ADMIN = _layout(ADMIN_ITEMS, "Administrator", '<a href="/admin/logout">{{ ico(\'logout\') }}<span>Logout</span></a>')
+LAYOUT_USER = _layout(USER_ITEMS, "{{ g.user.username }}", "{{ g.user.username[:1]|upper }}", "Merchant account", '<a class="out" href="/logout">{{ ico(\'logout\') }}<span>Logout</span></a>')
+LAYOUT_ADMIN = _layout(ADMIN_ITEMS, "Administrator", "A", "Full access", '<a class="out" href="/admin/logout">{{ ico(\'logout\') }}<span>Logout</span></a>')
 
 def page(layout, active, title, content):
     return ("{% extends '" + layout + "' %}{% set active='" + active + "' %}{% block title %}" + title + "{% endblock %}{% block content %}" + content + "{% endblock %}")
 
-AUTH = """{% extends 'base.html' %}{% block title %}{{ 'Sign up' if mode=='signup' else 'Login' }}{% endblock %}
-{% block body %}<div class="page"><div class="auth card">
-<div class="center" style="margin-bottom:18px"><div class="logo" style="font-size:28px">Pay Gateway</div>
-<div class="mut">Auto payment verification</div></div>
-<h1>{{ 'Create account' if mode=='signup' else 'Welcome back' }}</h1>""" + FLASH + """
+_PWJS = """<script>function sp(b){var i=document.getElementById('pw');var s=i.type=='password';i.type=s?'text':'password';b.textContent=s?'Hide':'Show'}</script>"""
+
+AUTH = """{% extends 'base.html' %}{% block title %}{{ 'Sign up' if mode=='signup' else 'Login' }} · Pay Gateway{% endblock %}
+{% block body %}<div class="page"><div class="auth card glow">
+<div class="center" style="margin-bottom:24px"><div class="brand c">""" + MARK + """<span class="logo" style="font-size:26px">Pay Gateway</span></div>
+<div class="mut" style="margin-top:10px">Accept UPI payments with automatic verification</div></div>
+<h1 style="font-size:22px;margin-bottom:4px">{{ 'Create your account' if mode=='signup' else 'Welcome back' }}</h1>
+<p class="mut" style="margin:0 0 14px">{{ 'It takes less than a minute.' if mode=='signup' else 'Login to manage your gateways and orders.' }}</p>""" + FLASH + """
 <form method="post"><input type="hidden" name="csrf" value="{{csrf}}">
-<label>Username</label><input name="username" required maxlength="30" autocomplete="username" autocapitalize="off">
+<label>Username</label><input name="username" required maxlength="30" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
 {% if mode=='signup' %}
-<label>Phone number</label><input name="phone" required inputmode="numeric" pattern="[0-9+ ]{10,15}">
-<label>Gmail</label><input name="email" type="email" required>
+<label>Phone number</label><input name="phone" required inputmode="numeric" pattern="[0-9+ ]{10,15}" placeholder="10 digit mobile number">
+<label>Gmail</label><input name="email" type="email" required placeholder="you@gmail.com">
 {% endif %}
-<label>Password</label><input name="password" type="password" required autocomplete="{{ 'new-password' if mode=='signup' else 'current-password' }}">
-<button class="btn full">{{ 'Sign up' if mode=='signup' else 'Login' }}</button></form>
-<p class="center mut" style="margin-top:16px">
-{% if mode=='signup' %}Already have an account? <a href="/login">Login</a>{% else %}New here? <a href="/signup">Create account</a>{% endif %}</p>
-</div></div>{% endblock %}"""
+<label>Password</label><div class="pw"><input id="pw" name="password" type="password" required autocomplete="{{ 'new-password' if mode=='signup' else 'current-password' }}" autocapitalize="off" autocorrect="off" spellcheck="false"><button type="button" class="eye" onclick="sp(this)">Show</button></div>
+<button class="btn full">{{ 'Create account' if mode=='signup' else 'Login' }}</button></form>
+<p class="center mut" style="margin:18px 0 0">
+{% if mode=='signup' %}Already have an account? <a href="/login"><b>Login</b></a>{% else %}New here? <a href="/signup"><b>Create account</b></a>{% endif %}</p>
+</div></div>""" + _PWJS + """{% endblock %}"""
 
-ADMIN_LOGIN = """{% extends 'base.html' %}{% block title %}Admin{% endblock %}
-{% block body %}<div class="page"><div class="auth card"><h1>Admin login</h1>""" + FLASH + """
+ADMIN_LOGIN = """{% extends 'base.html' %}{% block title %}Admin · Pay Gateway{% endblock %}
+{% block body %}<div class="page"><div class="auth card glow"><div class="center" style="margin-bottom:20px"><div class="brand c">""" + MARK + """<span class="logo" style="font-size:24px">Admin</span></div></div>""" + FLASH + """
 <form method="post"><input type="hidden" name="csrf" value="{{csrf}}">
-<label>Admin username</label><input name="username" required autocapitalize="off">
-<label>Password</label><input name="password" type="password" required>
-<button class="btn full">Login</button></form></div></div>{% endblock %}"""
+<label>Admin username</label><input name="username" required autocapitalize="off" autocorrect="off">
+<label>Password</label><div class="pw"><input id="pw" name="password" type="password" required autocapitalize="off"><button type="button" class="eye" onclick="sp(this)">Show</button></div>
+<button class="btn full">Login</button></form></div></div>""" + _PWJS + """{% endblock %}"""
 
-def stat(label, val): return '<div class="card stat"><span>%s</span><b>%s</b></div>' % (label, val)
+def stat(label, val, icon="chart"):
+    return ('<div class="card stat"><div class="si">{{ ico(\'%s\') }}</div><div><span>%s</span><b>%s</b></div></div>' % (icon, label, val))
+
 
 ORDER_ROWS = """{% for o in rows %}<tr><td>{{o.id[:8]}}</td><td>{{o.gname}}</td><td>{{o.ref or '-'}}</td><td>{{money(o.amount)}}</td>
 <td><span class="tag {{ 'ok' if o.status=='paid' else 'bad' if o.status=='expired' else '' }}">{{o.status}}</span></td><td>{{ist(o.created_ts)}}</td></tr>
@@ -131,7 +184,7 @@ ORDER_HEAD = "<tr><th>Order</th><th>Gateway</th><th>Ref</th><th>Amount ₹</th><
 
 DASH = page('layout_user.html', 'dash', 'Dashboard', """
 <div class="pagehead"><h1>Hi, {{u.username}}</h1><a class="btn sm" href="/gateway/new">{{ ico('plus') }} Add gateway</a></div>
-<div class="grid">""" + stat("Gateways", "{{gcount}}") + stat("Payments", "{{st.total}}") + stat("Successful", "{{st.paid}}") + stat("Received ₹", "{{st.sum}}") + """</div>
+<div class="grid">""" + stat("Gateways", "{{gcount}}", "grid") + stat("Payments", "{{st.total}}", "list") + stat("Successful", "{{st.paid}}", "check") + stat("Received ₹", "{{st.sum}}", "wallet") + """</div>
 <div class="card"><h2>Recent orders</h2><div class="scroll"><table>""" + ORDER_HEAD + ORDER_ROWS + """</table></div>
 <p style="margin:14px 0 0"><a href="/orders">View all orders →</a></p></div>""")
 
@@ -143,20 +196,20 @@ GATEWAYS = page('layout_user.html', 'gateways', 'Gateways', """
 {% else %}<div class="card center mut">No gateway yet. Tap “Add gateway” to create one.</div>{% endfor %}""")
 
 GATEWAY_NEW = page('layout_user.html', 'gateways', 'Add gateway', """
-<div class="pagehead"><h1>Add gateway</h1></div>
+<div class="pagehead"><h1>Add gateway</h1><a href="/gateways">← Back</a></div>
 <div class="card"><form method="post" action="/gateway/add"><input type="hidden" name="csrf" value="{{csrf}}">
 <label>Gateway type</label><select name="type" id="gt" onchange="sw()"><option value="fampay">FamPay (Gmail auto verification)</option><option value="paytm">Paytm Business (Merchant ID)</option></select>
-<div class="row"><div><label>Shop name (shown to payer)</label><input name="name" required maxlength="40"></div>
-<div><label>UPI ID</label><input name="upi_id" required placeholder="name@fam / name@paytm" autocapitalize="off"></div></div>
-<div id="f_fam"><p class="mut">Google Account → Security → 2-Step Verification ON → App passwords → create one (16 characters). Turn IMAP on in Gmail settings.</p>
+<div class="row"><div><label>Shop name (shown to payer)</label><input name="name" required maxlength="40" placeholder="My Shop"></div>
+<div><label>UPI ID</label><input name="upi_id" required placeholder="name@fam / name@paytm" autocapitalize="off" autocorrect="off"></div></div>
+<div id="f_fam"><div class="note">Google Account → Security → 2-Step Verification ON → App passwords → create one (16 characters). Turn IMAP on in Gmail settings.</div>
 <div class="row"><div><label>Gmail that receives FamPay emails</label><input name="gmail" type="email"></div>
 <div><label>Gmail app password (16 characters)</label><input name="app_password" autocomplete="off" placeholder="xxxx xxxx xxxx xxxx"></div></div></div>
-<div id="f_pt" style="display:none"><p class="mut">Paytm for Business dashboard → Developer Settings → API keys.</p>
-<div class="row"><div><label>Merchant ID (MID)</label><input name="mid" autocomplete="off"></div>
-<div><label>Merchant Key</label><input name="mkey" autocomplete="off"></div></div></div>
+<div id="f_pt" style="display:none"><div class="note">Only your Paytm Merchant ID is needed. No Merchant Key. Payments are verified automatically.</div>
+<div class="row"><div><label>Merchant ID (MID)</label><input name="mid" autocomplete="off" autocapitalize="off" placeholder="e.g. ABCDEF12345678901234"></div></div></div>
 <button class="btn full">Verify &amp; create</button></form></div>
 <script>function sw(){const p=document.getElementById('gt').value=='paytm';
 document.getElementById('f_fam').style.display=p?'none':'block';document.getElementById('f_pt').style.display=p?'block':'none'}</script>""")
+
 
 GATEWAY = page('layout_user.html', 'gateways', '{{gw.name}}', """
 <div class="pagehead"><h1>{{gw.name}} <span class="tag {{ 'ok' if gw.active else 'bad' }}">{{ 'Active' if gw.active else 'Off' }}</span></h1><a href="/gateways">← Back</a></div>
@@ -217,30 +270,37 @@ ACCOUNT = page('layout_user.html', 'account', 'Account', """
 <div><label>New password</label><input type="password" name="new" required minlength="6"></div>
 <div><button class="btn">Update</button></div></form></div>""")
 
-CHECKOUT = """{% extends 'base.html' %}{% block title %}Pay ₹{{amt}}{% endblock %}
-{% block body %}<div class="page"><div style="max-width:420px;margin:0 auto 10px"><a href="#" onclick="goBack();return false" style="display:inline-flex;align-items:center;gap:6px;font-weight:700">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Back</a></div>
-<div class="auth card center" style="margin-top:0">
-<div class="logo" style="font-size:22px">{{gw.name}}</div>
-<div class="mut" style="margin:6px 0 14px">Order {{o.id[:8]}}</div>
+CHECKOUT = """{% extends 'base.html' %}{% block title %}Pay ₹{{amt}} · {{gw.name}}{% endblock %}
+{% block body %}<div class="page"><div class="co">
+<a class="back" href="#" onclick="goBack();return false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Back</a>
+<div class="card glow center" style="padding:26px 22px">
+<div class="cohead"><div class="brand">""" + MARK + """<span class="nm">{{gw.name}}</span></div><span class="secure">&#128274; Secure</span></div>
 <div id="pending">
-<div style="font-size:38px;font-weight:800">₹{{amt}}</div>
-{% if gw.type=='fampay' %}<p style="color:#fcd34d;font-size:13px">Pay exactly ₹{{amt}}, including the paise, or it will not be detected.</p>{% endif %}
-<div id="qr" style="background:#fff;display:inline-block;padding:12px;border-radius:12px;margin:8px 0"></div>
-<div><a class="btn" href="{{upi}}">Open UPI app</a></div>
-<p class="mut" style="margin-top:12px">UPI ID: {{gw.upi_id}}</p>
-<p class="mut">QR expires in <b id="t">--:--</b> &nbsp; Waiting for payment…</p></div>
-<div id="ok" style="display:none"><div style="font-size:54px">✅</div><h2>Payment received</h2><p class="mut" id="rd"></p></div>
-<div id="ex" style="display:none"><div style="font-size:54px">⌛</div><h2>QR expired</h2><p class="mut">Please go back and start a new payment.</p><a class="btn" href="#" onclick="goBack();return false">Back</a></div>
-</div></div>
+<div class="mut">Amount to pay</div>
+<div class="amt">₹{{amt}}</div>
+<div class="mut" style="margin-top:4px">Order {{o.id[:8]}}</div>
+{% if gw.type=='fampay' %}<div class="flash warn" style="margin:14px 0 0;text-align:left">Pay exactly ₹{{amt}}, including the paise, or it will not be detected.</div>{% endif %}
+<div id="qr" class="qrbox"></div>
+<div class="mut">Scan with any UPI app</div>
+<div class="upirow"><div><small>Pay to UPI ID</small><b id="upi">{{gw.upi_id}}</b></div><button class="btn sm gray" type="button" onclick="cp()" id="cpb">Copy</button></div>
+<a class="btn full" style="margin-top:6px" href="{{upi}}">Open UPI app</a>
+<div class="bar"><i id="bar"></i></div>
+<div class="mut"><span class="dot"></span>Waiting for payment · expires in <b id="t">--:--</b></div></div>
+<div id="ok" style="display:none"><div class="big">✅</div><h2 style="margin-top:14px">Payment received</h2><p class="mut" id="rd"></p></div>
+<div id="ex" style="display:none"><div class="big">⌛</div><h2 style="margin-top:14px">QR expired</h2><p class="mut">Please go back and start a new payment.</p><a class="btn" href="#" onclick="goBack();return false">Back</a></div>
+</div></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const link={{upi|tojson}}, redirect={{(o.redirect_url or '')|tojson}}, back={{(o.cancel_url or o.redirect_url or '')|tojson}};
 function goBack(){if(back)location.href=back;else if(history.length>1)history.back();else location.href='/'}
+function cp(){const v=document.getElementById('upi').textContent,b=document.getElementById('cpb');const ok=()=>{b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1500)};
+if(navigator.clipboard)navigator.clipboard.writeText(v).then(ok,ok);else ok()}
 if(window.QRCode)new QRCode(document.getElementById('qr'),{text:link,width:210,height:210});
-let left={{remaining}};
+let left={{remaining}};const total=Math.max(1,left);
 function show(id){for(const x of['pending','ok','ex'])document.getElementById(x).style.display=x==id?'block':'none'}
-setInterval(()=>{left=Math.max(0,left-1);const m=String(Math.floor(left/60)).padStart(2,'0'),s=String(left%60).padStart(2,'0');document.getElementById('t').textContent=m+':'+s;if(left==0&&document.getElementById('pending').style.display!='none')poll(true)},1000);
+function tick(){const m=String(Math.floor(left/60)).padStart(2,'0'),s=String(left%60).padStart(2,'0');document.getElementById('t').textContent=m+':'+s;document.getElementById('bar').style.width=(left/total*100)+'%'}
+tick();
+setInterval(()=>{left=Math.max(0,left-1);tick();if(left==0&&document.getElementById('pending').style.display!='none')poll(true)},1000);
 const st={{o.status|tojson}};
 if(st=='paid')done();else if(st=='expired')show('ex');else poll();
 function done(){show('ok');if(redirect){document.getElementById('rd').textContent='Redirecting…';setTimeout(()=>location.href=redirect,2000)}}
@@ -249,16 +309,17 @@ async function poll(once){if(busy&&!once)return;busy=true;try{const r=await fetc
 if(d.status=='paid')return done();if(d.status=='expired')return show('ex');left=d.remaining}catch(e){}busy=false;if(!once)setTimeout(poll,1500)}
 </script>{% endblock %}"""
 
+
 ADMIN_HOME = page('layout_admin.html', 'home', 'Overview', """
 <div class="pagehead"><h1>Overview</h1></div>
-<div class="grid">""" + stat("Users", "{{us.n}}") + stat("Gateways", "{{gw.n}}") + stat("Paid orders", "{{ost.p or 0}}") + stat("Revenue today ₹", "{{money(ost.t or 0)}}") + stat("Revenue total ₹", "{{money(ost.s or 0)}}") + """</div>
+<div class="grid">""" + stat("Users", "{{us.n}}", "users") + stat("Gateways", "{{gw.n}}", "grid") + stat("Paid orders", "{{ost.p or 0}}", "check") + stat("Revenue today ₹", "{{money(ost.t or 0)}}", "wallet") + stat("Revenue total ₹", "{{money(ost.s or 0)}}", "wallet") + """</div>
 <div class="card"><h2>Latest orders</h2><div class="scroll"><table>""" + ORDER_HEAD + ORDER_ROWS + """</table></div></div>
 <div class="card"><h2>New users</h2><div class="scroll"><table><tr><th>Username</th><th>Phone</th><th>Gmail</th><th>Joined</th></tr>
 {% for x in newu %}<tr><td>{{x.username}}</td><td>{{x.phone}}</td><td>{{x.email}}</td><td>{{x.created}}</td></tr>{% else %}<tr><td colspan="4" class="mut">No users yet.</td></tr>{% endfor %}</table></div></div>""")
 
 ADMIN_USERS = page('layout_admin.html', 'users', 'Users', """
 <div class="pagehead"><h1>Users</h1></div>
-<div class="grid">""" + stat("Total", "{{stats.total}}") + stat("Active", "{{stats.active}}") + stat("Banned", "{{stats.banned}}") + """</div>
+<div class="grid">""" + stat("Total", "{{stats.total}}", "users") + stat("Active", "{{stats.active}}", "check") + stat("Banned", "{{stats.banned}}", "shield") + """</div>
 <div class="card">
 <form method="get" class="row" style="margin-bottom:12px"><input name="q" value="{{q}}" placeholder="Search username / phone / gmail"><button class="btn gray" style="flex:0">Search</button></form>
 <div class="scroll"><table><tr><th>ID</th><th>Username</th><th>Phone</th><th>Gmail</th><th>Status</th><th>Joined</th><th>Actions</th></tr>
@@ -280,7 +341,7 @@ ADMIN_USERS = page('layout_admin.html', 'users', 'Users', """
 
 ADMIN_GW = page('layout_admin.html', 'gws', 'Gateways', """
 <div class="pagehead"><h1>Gateways &amp; Orders</h1></div>
-<div class="grid">""" + stat("Orders", "{{ost.n}}") + stat("Paid", "{{ost.p or 0}}") + stat("Revenue total ₹", "{{money(ost.s or 0)}}") + stat("Revenue today ₹", "{{money(ost.t or 0)}}") + """</div>
+<div class="grid">""" + stat("Orders", "{{ost.n}}", "list") + stat("Paid", "{{ost.p or 0}}", "check") + stat("Revenue total ₹", "{{money(ost.s or 0)}}", "wallet") + stat("Revenue today ₹", "{{money(ost.t or 0)}}", "wallet") + """</div>
 <div class="card"><h2>All gateways</h2><div class="scroll"><table>
 <tr><th>ID</th><th>Owner</th><th>Name</th><th>UPI</th><th>Type / Account</th><th>Orders</th><th>Paid</th><th>Status</th><th>Last error</th><th></th></tr>
 {% for x in gws %}<tr><td>{{x.id}}</td><td>{{x.username}}</td><td>{{x.name}}</td><td>{{x.upi_id}}</td><td>{{x.type}} · {{x.gmail or x.mid}}</td><td>{{x.n}}</td><td>{{x.p or 0}}</td>
